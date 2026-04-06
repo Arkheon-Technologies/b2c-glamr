@@ -1,0 +1,29 @@
+{
+  "name": "glamr",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "dev:web": "turbo dev --filter=@glamr/web",
+    "dev:api": "turbo dev --filter=@glamr/api",
+    "dev:all": "turbo dev --filter=@glamr/web --filter=@glamr/api",
+    "db:generate": "npm run generate --workspace=@glamr/db",
+    "db:push": "npm run push --workspace=@glamr/db",
+    "db:migrate": "npm run migrate --workspace=@glamr/db",
+    "db:studio": "npm run studio --workspace=@glamr/db"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@10.8.0"
+}

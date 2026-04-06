@@ -1,0 +1,326 @@
+@import "tailwindcss";
+
+/* ─── GLAMR Design System ─────────────────────────────────────────── */
+
+:root {
+  /* Brand Colors — Beauty-inspired palette */
+  --glamr-rose: #E91E8A;
+  --glamr-rose-light: #FF4DA6;
+  --glamr-rose-dark: #C2176F;
+  --glamr-gold: #D4A853;
+  --glamr-gold-light: #F0D08C;
+  --glamr-blush: #FFF0F5;
+  --glamr-cream: #FFF8F0;
+
+  /* Neutrals */
+  --glamr-900: #0D0D0F;
+  --glamr-800: #1A1A2E;
+  --glamr-700: #2D2D44;
+  --glamr-600: #4A4A68;
+  --glamr-500: #6B6B8D;
+  --glamr-400: #9494AD;
+  --glamr-300: #C4C4D4;
+  --glamr-200: #E8E8F0;
+  --glamr-100: #F5F5FA;
+  --glamr-50: #FAFAFD;
+
+  /* Functional */
+  --glamr-success: #10B981;
+  --glamr-warning: #F59E0B;
+  --glamr-error: #EF4444;
+  --glamr-info: #6366F1;
+
+  /* Surfaces — Light mode */
+  --background: #FAFAFD;
+  --foreground: #0D0D0F;
+  --surface: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-overlay: rgba(255, 255, 255, 0.95);
+  --border: #E8E8F0;
+  --border-hover: #C4C4D4;
+
+  /* Text */
+  --text-primary: #0D0D0F;
+  --text-secondary: #4A4A68;
+  --text-tertiary: #9494AD;
+  --text-inverse: #FFFFFF;
+
+  /* Spacing */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 20px rgba(233, 30, 138, 0.15);
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0D0D0F;
+    --foreground: #F5F5FA;
+    --surface: #1A1A2E;
+    --surface-raised: #2D2D44;
+    --surface-overlay: rgba(26, 26, 46, 0.95);
+    --border: #2D2D44;
+    --border-hover: #4A4A68;
+    --text-primary: #F5F5FA;
+    --text-secondary: #C4C4D4;
+    --text-tertiary: #6B6B8D;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 30px rgba(233, 30, 138, 0.25);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-glamr-rose: var(--glamr-rose);
+  --color-glamr-gold: var(--glamr-gold);
+  --color-surface: var(--surface);
+  --font-sans: "Inter", "Outfit", system-ui, sans-serif;
+}
+
+/* ─── Base Styles ──────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: "Inter", "Outfit", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+/* ─── Typography ───────────────────────────────────────────────────── */
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Outfit", "Inter", system-ui, sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+h1 { font-size: 2.5rem; letter-spacing: -0.03em; }
+h2 { font-size: 2rem; letter-spacing: -0.02em; }
+h3 { font-size: 1.5rem; letter-spacing: -0.01em; }
+h4 { font-size: 1.25rem; }
+
+/* ─── Buttons ──────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--glamr-rose);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--glamr-rose) 0%, var(--glamr-rose-dark) 100%);
+  color: white;
+  box-shadow: var(--shadow-sm), 0 0 0 0 rgba(233, 30, 138, 0);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md), 0 4px 14px rgba(233, 30, 138, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  border-color: var(--glamr-rose);
+  color: var(--glamr-rose);
+  background: var(--glamr-blush);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--glamr-100);
+  color: var(--text-primary);
+}
+
+.btn-lg {
+  padding: 14px 28px;
+  font-size: 1rem;
+  border-radius: var(--radius-lg);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+}
+
+/* ─── Cards ────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 24px;
+  transition: all var(--transition-base);
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--glamr-rose);
+}
+
+/* ─── Inputs ───────────────────────────────────────────────────────── */
+
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: all var(--transition-fast);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--glamr-rose);
+  box-shadow: 0 0 0 3px rgba(233, 30, 138, 0.1);
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ─── Badges ───────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.badge-rose {
+  background: rgba(233, 30, 138, 0.1);
+  color: var(--glamr-rose);
+}
+
+.badge-gold {
+  background: rgba(212, 168, 83, 0.1);
+  color: var(--glamr-gold);
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--glamr-success);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--glamr-warning);
+}
+
+/* ─── Animations ───────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 30, 138, 0.2); }
+  50% { box-shadow: 0 0 16px 4px rgba(233, 30, 138, 0.15); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.4s ease-out;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--glamr-200) 25%, var(--glamr-100) 50%, var(--glamr-200) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
+
+/* ─── Utilities ────────────────────────────────────────────────────── */
+
+.glass {
+  background: var(--surface-overlay);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--glamr-rose) 0%, var(--glamr-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  width: 100%;
+}

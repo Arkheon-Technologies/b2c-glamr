@@ -32,6 +32,18 @@ jobs:
       - name: Type-check (db)
         run: npm run lint --workspace=@glamr/db
 
+      - name: Type-check (api)
+        run: npm run type-check:api
+
+      - name: Test
+        run: npm run test
+
+      - name: Notify Discord
+        if: ${{ always() && hashFiles('scripts/notify-discord.sh') != '' }}
+        run: ./scripts/notify-discord.sh ci n/a "${{ job.status }}" ""
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -51,3 +63,9 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Notify Discord
+        if: ${{ always() && hashFiles('scripts/notify-discord.sh') != '' }}
+        run: ./scripts/notify-discord.sh build n/a "${{ job.status }}" ""
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

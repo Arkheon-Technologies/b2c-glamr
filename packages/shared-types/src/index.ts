@@ -108,8 +108,10 @@ export interface AvailableSlot {
 export interface ApiError {
   code: string;
   message: string;
+  request_id: string;
+  // Backward compatibility for existing client code.
   details?: Record<string, unknown>;
-  requestId: string;
+  requestId?: string;
 }
 
 export interface ApiResponse<T> {

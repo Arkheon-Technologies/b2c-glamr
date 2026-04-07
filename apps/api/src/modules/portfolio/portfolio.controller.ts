@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
-import { UportfolioService } from './portfolio.service';
+import { PortfolioService } from './portfolio.service';
 
 @Controller('portfolio')
-export class UportfolioController {
-  constructor(private readonly portfolioService: UportfolioService) {}
+export class PortfolioController {
+  constructor(private readonly portfolioService: PortfolioService) {}
 }

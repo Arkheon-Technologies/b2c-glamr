@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { UbusinessController } from './business.controller';
-import { UbusinessService } from './business.service';
+import { BusinessController } from './business.controller';
+import { BusinessService } from './business.service';
 
 @Module({
-  controllers: [UbusinessController],
-  providers: [UbusinessService],
-  exports: [UbusinessService],
+  controllers: [BusinessController],
+  providers: [BusinessService],
+  exports: [BusinessService],
 })
-export class UbusinessModule {}
+export class BusinessModule {}

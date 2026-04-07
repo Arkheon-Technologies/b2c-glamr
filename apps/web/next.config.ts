@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Transpile workspace packages (raw TypeScript)
+  transpilePackages: ["@glamr/shared-types"],
 };
 
 export default nextConfig;

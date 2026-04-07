@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { UqueueController } from './queue.controller';
-import { UqueueService } from './queue.service';
+import { QueueController } from './queue.controller';
+import { QueueService } from './queue.service';
 
 @Module({
-  controllers: [UqueueController],
-  providers: [UqueueService],
-  exports: [UqueueService],
+  controllers: [QueueController],
+  providers: [QueueService],
+  exports: [QueueService],
 })
-export class UqueueModule {}
+export class QueueModule {}

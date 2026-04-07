@@ -90,7 +90,8 @@
   --color-glamr-rose: var(--glamr-rose);
   --color-glamr-gold: var(--glamr-gold);
   --color-surface: var(--surface);
-  --font-sans: "Inter", "Outfit", system-ui, sans-serif;
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-heading: var(--font-outfit), "Outfit", system-ui, sans-serif;
 }
 
 /* ─── Base Styles ──────────────────────────────────────────────────── */
@@ -102,7 +103,7 @@
 body {
   background: var(--background);
   color: var(--text-primary);
-  font-family: "Inter", "Outfit", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), "Inter", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
@@ -111,7 +112,7 @@ body {
 /* ─── Typography ───────────────────────────────────────────────────── */
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: "Outfit", "Inter", system-ui, sans-serif;
+  font-family: var(--font-outfit), "Outfit", system-ui, sans-serif;
   font-weight: 600;
   line-height: 1.2;
   color: var(--text-primary);

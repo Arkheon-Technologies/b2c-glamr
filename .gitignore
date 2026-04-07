@@ -5,14 +5,13 @@ node_modules/
 dist/
 .next/
 out/
-
-# Turbo
 .turbo/
 
-# Environment
+# Environment — NEVER commit secrets
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # IDE
 .idea/
@@ -24,9 +23,12 @@ out/
 .DS_Store
 Thumbs.db
 
-# Prisma
+# Prisma local DB
 packages/db/prisma/*.db
 
 # Logs
 *.log
 npm-debug.log*
+
+# Test coverage
+coverage/

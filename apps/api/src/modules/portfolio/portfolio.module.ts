@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { UportfolioController } from './portfolio.controller';
-import { UportfolioService } from './portfolio.service';
+import { PortfolioController } from './portfolio.controller';
+import { PortfolioService } from './portfolio.service';
 
 @Module({
-  controllers: [UportfolioController],
-  providers: [UportfolioService],
-  exports: [UportfolioService],
+  controllers: [PortfolioController],
+  providers: [PortfolioService],
+  exports: [PortfolioService],
 })
-export class UportfolioModule {}
+export class PortfolioModule {}

@@ -30,20 +30,20 @@
   --glamr-error: #EF4444;
   --glamr-info: #6366F1;
 
-  /* Surfaces — Light mode */
-  --background: #FAFAFD;
-  --foreground: #0D0D0F;
-  --surface: #FFFFFF;
-  --surface-raised: #FFFFFF;
-  --surface-overlay: rgba(255, 255, 255, 0.95);
-  --border: #E8E8F0;
-  --border-hover: #C4C4D4;
+  /* Surfaces — Dark mode defaults (GLAMR is dark-first) */
+  --background: #0D0D0F;
+  --foreground: #F5F5FA;
+  --surface: #1A1A2E;
+  --surface-raised: #2D2D44;
+  --surface-overlay: rgba(26, 26, 46, 0.95);
+  --border: #2D2D44;
+  --border-hover: #4A4A68;
 
   /* Text */
-  --text-primary: #0D0D0F;
-  --text-secondary: #4A4A68;
-  --text-tertiary: #9494AD;
-  --text-inverse: #FFFFFF;
+  --text-primary: #F5F5FA;
+  --text-secondary: #C4C4D4;
+  --text-tertiary: #6B6B8D;
+  --text-inverse: #0D0D0F;
 
   /* Radii */
   --radius-sm: 6px;
@@ -64,24 +64,53 @@
   --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0D0D0F;
-    --foreground: #F5F5FA;
-    --surface: #1A1A2E;
-    --surface-raised: #2D2D44;
-    --surface-overlay: rgba(26, 26, 46, 0.95);
-    --border: #2D2D44;
-    --border-hover: #4A4A68;
-    --text-primary: #F5F5FA;
-    --text-secondary: #C4C4D4;
-    --text-tertiary: #6B6B8D;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
-    --shadow-glow: 0 0 30px rgba(233, 30, 138, 0.25);
+/* ─── Shadows — dark defaults ──────────────────────────────────────── */
+:root {
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 30px rgba(233, 30, 138, 0.25);
+}
+
+/* ─── Light mode (explicit toggle OR system preference) ────────────── */
+:root[data-theme="light"],
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --background: #FAFAFD;
+    --foreground: #0D0D0F;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --surface-overlay: rgba(255, 255, 255, 0.95);
+    --border: #E8E8F0;
+    --border-hover: #C4C4D4;
+    --text-primary: #0D0D0F;
+    --text-secondary: #4A4A68;
+    --text-tertiary: #9494AD;
+    --text-inverse: #FFFFFF;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+    --shadow-glow: 0 0 20px rgba(233, 30, 138, 0.15);
   }
+}
+
+/* Explicit dark always wins */
+:root[data-theme="dark"] {
+  --background: #0D0D0F;
+  --foreground: #F5F5FA;
+  --surface: #1A1A2E;
+  --surface-raised: #2D2D44;
+  --surface-overlay: rgba(26, 26, 46, 0.95);
+  --border: #2D2D44;
+  --border-hover: #4A4A68;
+  --text-primary: #F5F5FA;
+  --text-secondary: #C4C4D4;
+  --text-tertiary: #6B6B8D;
+  --text-inverse: #0D0D0F;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 30px rgba(233, 30, 138, 0.25);
 }
 
 @theme inline {
@@ -1358,4 +1387,138 @@ h1, h2, h3, h4, h5, h6 {
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 24px; }
 
   .footer-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Light-mode navbar overrides ─────────────────────────────────── */
+
+:root[data-theme="light"] .navbar,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .navbar {
+    background: rgba(250, 250, 253, 0.92);
+    border-bottom-color: var(--border);
+  }
+}
+
+:root[data-theme="light"] .navbar-link,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .navbar-link {
+    color: var(--text-secondary);
+  }
+}
+
+:root[data-theme="light"] .navbar-link:hover,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .navbar-link:hover {
+    color: var(--text-primary);
+  }
+}
+
+:root[data-theme="light"] .navbar-mobile-menu,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .navbar-mobile-menu {
+    background: rgba(250, 250, 253, 0.98);
+    border-top-color: var(--border);
+  }
+}
+
+:root[data-theme="light"] .navbar-mobile-link,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .navbar-mobile-link {
+    color: var(--text-secondary);
+    border-bottom-color: var(--border);
+  }
+}
+
+/* In light mode, swap dark-variant buttons in the navbar to light-surface ones */
+:root[data-theme="light"] .navbar .btn-ghost-dark,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .navbar .btn-ghost-dark {
+    color: var(--text-secondary);
+    background: transparent;
+  }
+}
+
+:root[data-theme="light"] .navbar .btn-ghost-dark:hover,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .navbar .btn-ghost-dark:hover {
+    color: var(--text-primary);
+    background: var(--glamr-100);
+  }
+}
+
+/* ─── Theme toggle button ──────────────────────────────────────────── */
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+}
+
+:root[data-theme="light"] .theme-toggle,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .theme-toggle {
+    background: var(--glamr-100);
+    color: var(--text-secondary);
+  }
+}
+
+:root[data-theme="light"] .theme-toggle:hover,
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .theme-toggle:hover {
+    background: var(--glamr-200);
+    color: var(--text-primary);
+  }
+}
+
+/* ─── Artist cover art ─────────────────────────────────────────────── */
+
+.artist-cover-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.artist-cover-tag {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.artist-available-dot {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--glamr-success);
+  border: 2px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
 }

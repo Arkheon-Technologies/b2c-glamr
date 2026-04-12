@@ -12,12 +12,13 @@ const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
   display: "swap",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "GLAMR — Beauty Booking Marketplace",
+  title: "GLAMR — Book the artist, not the time slot",
   description:
-    "The operating system for beauty professionals. Book appointments, manage your studio, and grow your beauty business.",
+    "The booking marketplace built for beauty professionals. Split-phase scheduling, portfolio-driven discovery, walk-in queues, deposits and packages — all in one place.",
 };
 
 export default function RootLayout({
@@ -30,7 +31,7 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${outfit.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-screen flex flex-col">{children}</body>
     </html>
   );
 }

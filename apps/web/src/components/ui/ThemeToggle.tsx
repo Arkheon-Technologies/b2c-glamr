@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 type Theme = "light" | "dark";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     // Read the data-theme already set by the inline script (no flash)
     const current =
-      (document.documentElement.getAttribute("data-theme") as Theme) ?? "dark";
+      (document.documentElement.getAttribute("data-theme") as Theme) ?? "light";
     setTheme(current);
     setMounted(true);
   }, []);
@@ -27,8 +27,6 @@ export function ThemeToggle() {
     }
   }
 
-  // Render a placeholder button with the same size during SSR/hydration
-  // to prevent layout shift
   return (
     <button
       type="button"
@@ -37,19 +35,16 @@ export function ThemeToggle() {
       aria-label={mounted ? `Switch to ${theme === "dark" ? "light" : "dark"} mode` : "Toggle theme"}
       title={mounted ? `Switch to ${theme === "dark" ? "light" : "dark"} mode` : undefined}
     >
+      {/* Moon icon — shown when currently light (click → go dark) */}
+      {(!mounted || theme === "light") && (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
+
       {/* Sun icon — shown when currently dark (click → go light) */}
-      {(!mounted || theme === "dark") && (
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
+      {mounted && theme === "dark" && (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <circle cx="12" cy="12" r="5" />
           <line x1="12" y1="1"  x2="12" y2="3"  />
           <line x1="12" y1="21" x2="12" y2="23" />
@@ -59,23 +54,6 @@ export function ThemeToggle() {
           <line x1="21" y1="12" x2="23" y2="12" />
           <line x1="4.22"  y1="19.78" x2="5.64"  y2="18.36" />
           <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"  />
-        </svg>
-      )}
-
-      {/* Moon icon — shown when currently light (click → go dark) */}
-      {mounted && theme === "light" && (
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
         </svg>
       )}
     </button>

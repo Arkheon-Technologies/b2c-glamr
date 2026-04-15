@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Outfit } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,17 +8,17 @@ const inter = Inter({
   display: "swap",
 });
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
   display: "swap",
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "GLAMR — Book the artist, not the time slot",
+  title: "GLAMR — The Operating System for Modern Beauty",
   description:
-    "The booking marketplace built for beauty professionals. Split-phase scheduling, portfolio-driven discovery, walk-in queues, deposits and packages — all in one place.",
+    "Precision scheduling and portfolio-driven discovery for beauty professionals. Split-phase booking, walk-in queues, deposits, packages — architectural solutions for high-performance studios.",
 };
 
 export default function RootLayout({
@@ -29,20 +29,28 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${outfit.variable} h-full antialiased`}
+      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
       <head>
         {/*
-          Runs synchronously before first paint to prevent flash of wrong theme.
-          Reads localStorage; defaults to "dark" (GLAMR is dark-first).
+          Runs synchronously before first paint — prevents flash of wrong theme.
+          Defaults to "light" (GLAMR clinical aesthetic is light-first).
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('glamr-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('glamr-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`,
           }}
         />
+        {/* Material Symbols Outlined icon font */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
+        />
       </head>
-      <body className="min-h-screen flex flex-col">{children}</body>
+      <body className="min-h-screen flex flex-col bg-background text-on-surface">
+        {children}
+      </body>
     </html>
   );
 }

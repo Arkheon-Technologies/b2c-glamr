@@ -71,6 +71,7 @@ Configuration:
 4. Start command:
    npm run start:prod --workspace=@glamr/api
 5. Auto-Deploy: On Commit (or Off if you want only GitHub workflow-driven deploys)
+6. Health Check Path: /api/v1/health
 
 Optional build filters for monorepo efficiency:
 

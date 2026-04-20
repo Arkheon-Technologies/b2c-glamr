@@ -168,6 +168,7 @@ Manual setup checklist (Render + Vercel):
 
 1. Create one Render API service and copy its service ID.
 	Keep Render Root Directory empty (repository root) so monorepo workspace commands resolve correctly.
+	Set Render Health Check Path to `/api/v1/health`.
 2. Create one free Postgres database in Neon or Supabase and copy its connection string.
 	If using Supabase, append `?sslmode=require` to DATABASE_URL.
 3. Open repository settings: `Settings -> Secrets and variables -> Actions`.

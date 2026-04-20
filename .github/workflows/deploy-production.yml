@@ -1,0 +1,98 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Run deployment in dry-run mode
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    env:
+      APP_ENV: production
+      DEPLOY_PLATFORM: mixed
+      DEPLOY_API_PLATFORM: render
+      DEPLOY_WEB_PLATFORM: vercel
+      DEPLOY_API_COMMAND: ${{ vars.DEPLOY_API_COMMAND_PRODUCTION }}
+      DEPLOY_API_MIGRATE_COMMAND: ${{ vars.DEPLOY_API_MIGRATE_COMMAND_PRODUCTION }}
+      DEPLOY_WEB_COMMAND: ${{ vars.DEPLOY_WEB_COMMAND_PRODUCTION }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL_PRODUCTION || secrets.DATABASE_URL }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID_PRODUCTION || vars.RENDER_API_SERVICE_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_API_PROJECT_ID: ${{ vars.VERCEL_API_PROJECT_ID }}
+      VERCEL_WEB_PROJECT_ID: ${{ vars.VERCEL_WEB_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Build
+        run: npm run build
+
+      - name: Resolve deploy mode
+        id: mode
+        shell: bash
+        run: |
+          APPLY="true"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            APPLY="false"
+          fi
+          echo "apply=${APPLY}" >> "$GITHUB_OUTPUT"
+
+      - name: Preflight deploy configuration
+        shell: bash
+        run: |
+          if [[ "${{ steps.mode.outputs.apply }}" == "true" ]]; then
+            bash ./scripts/deploy-preflight.sh production --strict
+          else
+            bash ./scripts/deploy-preflight.sh production
+          fi
+
+      - name: Deploy API
+        shell: bash
+        run: |
+          if [[ "${{ steps.mode.outputs.apply }}" == "true" ]]; then
+            npm run deploy:production:api -- --apply
+          else
+            npm run deploy:production:api
+          fi
+
+      - name: Deploy Web
+        shell: bash
+        run: |
+          if [[ "${{ steps.mode.outputs.apply }}" == "true" ]]; then
+            npm run deploy:production:web -- --apply
+          else
+            npm run deploy:production:web
+          fi
+
+      - name: Notify Discord
+        if: ${{ always() && hashFiles('scripts/notify-discord.sh') != '' }}
+        run: ./scripts/notify-discord.sh deploy "${DEPLOY_PLATFORM:-mixed}" "${{ job.status }}" "production" "Production deployment workflow"
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

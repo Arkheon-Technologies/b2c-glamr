@@ -34,6 +34,7 @@ fi
 # 4. Symlink env for sub-packages that need it
 if [ ! -f "packages/db/.env" ]; then
   echo "DATABASE_URL=\"postgresql://postgres:postgres@localhost:5432/glamr_dev?schema=public\"" > packages/db/.env
+  echo "DIRECT_URL=\"postgresql://postgres:postgres@localhost:5432/glamr_dev?schema=public\"" >> packages/db/.env
   echo "✓ Created packages/db/.env for Prisma"
 fi
 

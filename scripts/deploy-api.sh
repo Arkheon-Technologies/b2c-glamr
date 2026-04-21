@@ -179,9 +179,9 @@ if [[ -z "$DEPLOY_COMMAND" && "$PLATFORM_LOWER" == "render" ]]; then
   fi
 fi
 
-if [[ "$run_migrations" == "true" && "$APPLY" == "true" && -z "${DATABASE_URL:-}" ]]; then
-  echo "DATABASE_URL is required when RUN_DB_MIGRATIONS=true in apply mode." >&2
-  echo "Set DATABASE_URL or disable migrations with RUN_DB_MIGRATIONS=false." >&2
+if [[ "$run_migrations" == "true" && "$APPLY" == "true" && -z "${DATABASE_URL:-}" && -z "${DIRECT_URL:-}" ]]; then
+  echo "DATABASE_URL or DIRECT_URL is required when RUN_DB_MIGRATIONS=true in apply mode." >&2
+  echo "Set DATABASE_URL or DIRECT_URL, or disable migrations with RUN_DB_MIGRATIONS=false." >&2
   exit 1
 fi
 

@@ -26,6 +26,8 @@ required_secrets=(
   "VERCEL_TOKEN"
   "DATABASE_URL_STAGING"
   "DATABASE_URL_PRODUCTION"
+  "DIRECT_URL_STAGING"
+  "DIRECT_URL_PRODUCTION"
 )
 
 optional_vars=(
@@ -62,6 +64,7 @@ Required environment variables:
   VERCEL_WEB_PROJECT_ID
   RENDER_API_KEY
   VERCEL_TOKEN
+  DIRECT_URL
 
 Required deploy target values (choose one mode):
   Split mode:
@@ -69,10 +72,13 @@ Required deploy target values (choose one mode):
     RENDER_API_SERVICE_ID_PRODUCTION
     DATABASE_URL_STAGING
     DATABASE_URL_PRODUCTION
+    DIRECT_URL_STAGING
+    DIRECT_URL_PRODUCTION
 
   Single-service mode:
     RENDER_API_SERVICE_ID
     DATABASE_URL
+    DIRECT_URL
 
 Optional environment variables:
   DEPLOY_API_COMMAND_STAGING
@@ -88,7 +94,7 @@ Examples:
   $SCRIPT_NAME --repo my-org/glamr
   $SCRIPT_NAME --repo my-org/glamr --apply
   $SCRIPT_NAME --repo my-org/glamr --apply --overwrite
-  RENDER_API_SERVICE_ID=srv-xxx DATABASE_URL=postgres://... $SCRIPT_NAME --repo my-org/glamr --apply
+  RENDER_API_SERVICE_ID=srv-xxx DATABASE_URL=postgres://... DIRECT_URL=postgres://... $SCRIPT_NAME --repo my-org/glamr --apply
 EOF
 }
 
@@ -183,6 +189,12 @@ hydrate_shared_defaults() {
     : "${DATABASE_URL_STAGING:=$shared_database_url}"
     : "${DATABASE_URL_PRODUCTION:=$shared_database_url}"
     log_info "Using shared DATABASE_URL for staging and production secrets."
+  fi
+
+  if [[ -n "${DIRECT_URL:-}" ]]; then
+    : "${DIRECT_URL_STAGING:=${DIRECT_URL}}"
+    : "${DIRECT_URL_PRODUCTION:=${DIRECT_URL}}"
+    log_info "Using shared DIRECT_URL for staging and production secrets."
   fi
 }
 

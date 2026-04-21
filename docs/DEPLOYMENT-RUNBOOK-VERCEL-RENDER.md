@@ -100,6 +100,8 @@ Value notes:
 1. Set FRONTEND_URL without trailing slash (example: https://glamr-web.vercel.app).
 2. For Supabase, use DATABASE_URL with sslmode=require.
    Example format: postgresql://postgres:<password>@<host>:5432/postgres?sslmode=require
+3. Keep DATABASE_URL on the pooler host for runtime traffic and use DIRECT_URL for schema ops.
+   Example format: postgresql://postgres:<password>@<host>:5432/postgres?sslmode=require
 
 Recommended value for APP_ENV in free mode:
 
@@ -146,7 +148,7 @@ Then:
 
 1. Copy the connection string with SSL enabled.
 2. Use this same DATABASE_URL in Render API service.
-3. Use this same DATABASE_URL in GitHub Actions secret for now.
+3. Use DATABASE_URL in GitHub Actions for runtime/deploy jobs and DIRECT_URL for Prisma schema operations.
 4. Confirm the database allows connections from Render's public internet egress.
 
 If the API logs show Prisma error P1001 or cannot reach the database host, the issue is database network reachability, not Prisma code.
@@ -243,11 +245,18 @@ Secrets (required):
 
 1. RENDER_API_KEY
 2. VERCEL_TOKEN
+3. DATABASE_URL or DATABASE_URL_STAGING / DATABASE_URL_PRODUCTION
+4. DIRECT_URL or DIRECT_URL_STAGING / DIRECT_URL_PRODUCTION
 
 Database URL (choose one mode):
 
 1. Single-db mode: DATABASE_URL
 2. Split mode: DATABASE_URL_STAGING and DATABASE_URL_PRODUCTION
+
+Direct URL (choose one mode):
+
+1. Single-db mode: DIRECT_URL
+2. Split mode: DIRECT_URL_STAGING and DIRECT_URL_PRODUCTION
 
 Optional variables:
 
@@ -268,7 +277,7 @@ Optional secret:
 First-time database bootstrap (one-time):
 
 1. If this is the first cloud deploy and no migration history exists yet, run:
-   DATABASE_URL="<your_database_url>" npm run db:push
+   DATABASE_URL="<your_database_url>" DIRECT_URL="<your_direct_url>" npm run db:push
 2. After schema exists in cloud DB, continue with deploy workflow steps below.
 
 Detailed first-time bootstrap steps:
@@ -276,6 +285,8 @@ Detailed first-time bootstrap steps:
 1. On your machine, open terminal in repository root.
 2. Export cloud DB URL with SSL mode.
    Example: export DATABASE_URL="postgresql://postgres:<password>@<host>:5432/postgres?sslmode=require"
+3. Export direct DB URL for schema operations.
+   Example: export DIRECT_URL="postgresql://postgres:<password>@<host>:5432/postgres?sslmode=require"
 3. Run Prisma schema push once:
    npm run db:push
 4. Verify tables were created in Supabase Table Editor.
@@ -346,11 +357,12 @@ When platform setup is complete, provide values for:
 1. RENDER_API_SERVICE_ID
 2. RENDER_API_KEY
 3. DATABASE_URL
-4. VERCEL_ORG_ID
-5. VERCEL_WEB_PROJECT_ID
-6. VERCEL_TOKEN
-7. API base URL
-8. Web URL
+4. DIRECT_URL
+5. VERCEL_ORG_ID
+6. VERCEL_WEB_PROJECT_ID
+7. VERCEL_TOKEN
+8. API base URL
+9. Web URL
 
 Optional if you already split environments:
 
@@ -358,10 +370,12 @@ Optional if you already split environments:
 2. RENDER_API_SERVICE_ID_PRODUCTION
 3. DATABASE_URL_STAGING
 4. DATABASE_URL_PRODUCTION
-5. Staging API base URL
-6. Production API base URL
-7. Staging web URL
-8. Production web URL
+5. DIRECT_URL_STAGING
+6. DIRECT_URL_PRODUCTION
+7. Staging API base URL
+8. Production API base URL
+9. Staging web URL
+10. Production web URL
 
 Optional if already prepared:
 

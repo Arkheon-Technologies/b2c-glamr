@@ -76,6 +76,7 @@ npm run db:studio     # Open Prisma Studio
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `DIRECT_URL` | No | Direct PostgreSQL connection for Prisma schema operations |
 | `REDIS_URL` | Yes | Redis connection string |
 | `JWT_SECRET` | Yes | Secret for JWT signing |
 | `API_PORT` | No | API port (default: 4000) |
@@ -146,11 +147,17 @@ Required secrets:
 
 - `RENDER_API_KEY`
 - `VERCEL_TOKEN`
+- `DIRECT_URL` or `DIRECT_URL_STAGING` / `DIRECT_URL_PRODUCTION`
 
 Required database URL values (choose one mode):
 
 - Single-db: `DATABASE_URL`
 - Split environments: `DATABASE_URL_STAGING` and `DATABASE_URL_PRODUCTION`
+
+Required direct database URL values for Prisma schema operations (choose one mode):
+
+- Single-db: `DIRECT_URL`
+- Split environments: `DIRECT_URL_STAGING` and `DIRECT_URL_PRODUCTION`
 
 Optional variables:
 
@@ -176,7 +183,7 @@ Manual setup checklist (Render + Vercel):
 4. Add variables:
 	`RENDER_API_SERVICE_ID` (or env-specific IDs), `VERCEL_ORG_ID`, `VERCEL_WEB_PROJECT_ID`.
 5. Add secrets:
-	`RENDER_API_KEY`, `VERCEL_TOKEN`, `DATABASE_URL` (or env-specific DB URLs).
+	`RENDER_API_KEY`, `VERCEL_TOKEN`, `DATABASE_URL` (or env-specific DB URLs), `DIRECT_URL` (or env-specific direct URLs).
 6. In Render service env, set `FRONTEND_URL` without trailing slash (example: `https://glamr-web.vercel.app`).
 7. Optionally add custom deploy command overrides:
 	`DEPLOY_API_COMMAND_STAGING`, `DEPLOY_WEB_COMMAND_STAGING`,
@@ -188,7 +195,7 @@ Manual setup checklist (Render + Vercel):
 If cloud DB is brand-new and migrations are not yet established, run a one-time schema bootstrap first:
 
 ```bash
-DATABASE_URL="<postgres_connection_url>" npm run db:push
+DATABASE_URL="<postgres_connection_url>" DIRECT_URL="<postgres_connection_url>" npm run db:push
 ```
 
 If you use GitHub CLI, you can set values manually with placeholders like this:
@@ -201,6 +208,7 @@ gh variable set VERCEL_WEB_PROJECT_ID --body "<vercel_web_project_id>"
 gh secret set RENDER_API_KEY --body "<render_api_key>"
 gh secret set VERCEL_TOKEN --body "<vercel_token>"
 gh secret set DATABASE_URL --body "<postgres_connection_url>"
+gh secret set DIRECT_URL --body "<postgres_connection_url>"
 ```
 
 Or use the repository helper script (dry-run by default, non-destructive unless `--overwrite` is passed):
@@ -214,6 +222,7 @@ VERCEL_WEB_PROJECT_ID="<vercel_web_project_id>" \
 RENDER_API_KEY="<render_api_key>" \
 VERCEL_TOKEN="<vercel_token>" \
 DATABASE_URL="<postgres_connection_url>" \
+DIRECT_URL="<postgres_connection_url>" \
 ./scripts/bootstrap-github-deploy-config.sh --repo "<owner>/<repo>"
 
 # Apply after reviewing dry-run output:
@@ -223,6 +232,7 @@ VERCEL_WEB_PROJECT_ID="<vercel_web_project_id>" \
 RENDER_API_KEY="<render_api_key>" \
 VERCEL_TOKEN="<vercel_token>" \
 DATABASE_URL="<postgres_connection_url>" \
+DIRECT_URL="<postgres_connection_url>" \
 ./scripts/bootstrap-github-deploy-config.sh --repo "<owner>/<repo>" --apply
 ```
 

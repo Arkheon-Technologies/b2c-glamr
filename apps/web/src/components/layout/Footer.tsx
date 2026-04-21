@@ -16,10 +16,14 @@ export function Footer() {
         {/* Structure */}
         <div className="flex flex-col gap-4">
           <p className="font-headline font-bold uppercase tracking-widest text-xs text-primary mb-2">Structure</p>
-          <a href="/#features"  className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Platform</a>
-          <a href="/#business"  className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Business Logic</a>
-          <a href="/#pricing"   className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Pricing Tiers</a>
+          <Link href="/#features" className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Platform</Link>
+          <Link href="/#business" className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Business Logic</Link>
+          <Link href="/#pricing" className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Pricing Tiers</Link>
           <Link href="/explore" className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Explore Artists</Link>
+          <Link href="/portfolio" className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Portfolio Gallery</Link>
+          <Link href="/queue" className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Join Queue</Link>
+          <Link href="/studio/queue" className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Studio Queue</Link>
+          <Link href="/studio/portfolio" className="text-on-surface-variant uppercase tracking-widest text-[10px] hover:text-primary-fixed transition-colors">Studio Portfolio</Link>
         </div>
 
         {/* Resources */}

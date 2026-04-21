@@ -46,6 +46,28 @@ export function Navbar() {
           >
             Explore
           </Link>
+          <Link
+            href="/portfolio"
+            className={[
+              "font-headline font-bold tracking-tight uppercase text-xs transition-colors duration-200",
+              pathname.startsWith("/portfolio") || pathname.startsWith("/studio/portfolio")
+                ? "text-primary-fixed border-b border-primary-fixed pb-0.5"
+                : "text-primary/60 hover:text-primary-fixed",
+            ].join(" ")}
+          >
+            Portfolio
+          </Link>
+          <Link
+            href="/queue"
+            className={[
+              "font-headline font-bold tracking-tight uppercase text-xs transition-colors duration-200",
+              pathname.startsWith("/queue") || pathname.startsWith("/studio/queue")
+                ? "text-primary-fixed border-b border-primary-fixed pb-0.5"
+                : "text-primary/60 hover:text-primary-fixed",
+            ].join(" ")}
+          >
+            Queue
+          </Link>
         </div>
 
         {/* Desktop actions */}
@@ -58,7 +80,7 @@ export function Navbar() {
             Log in
           </Link>
           <Link
-            href="/explore"
+            href="/book"
             className="bg-primary-fixed text-white font-headline font-bold uppercase tracking-widest text-xs px-6 py-2.5 hover:bg-primary transition-all duration-300 active:scale-95"
           >
             Book Now
@@ -109,6 +131,20 @@ export function Navbar() {
           >
             Explore
           </Link>
+          <Link
+            href="/queue"
+            className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container"
+            onClick={() => setIsOpen(false)}
+          >
+            Queue
+          </Link>
+          <Link
+            href="/portfolio"
+            className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container"
+            onClick={() => setIsOpen(false)}
+          >
+            Portfolio
+          </Link>
           <div className="flex gap-3 px-8 py-4">
             <Link
               href="/auth/login"
@@ -118,7 +154,7 @@ export function Navbar() {
               Log in
             </Link>
             <Link
-              href="/explore"
+              href="/book"
               className="flex-1 text-center font-headline font-bold uppercase tracking-widest text-xs bg-primary-fixed text-white py-3 hover:bg-primary transition-colors"
               onClick={() => setIsOpen(false)}
             >

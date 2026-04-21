@@ -147,6 +147,9 @@ Then:
 1. Copy the connection string with SSL enabled.
 2. Use this same DATABASE_URL in Render API service.
 3. Use this same DATABASE_URL in GitHub Actions secret for now.
+4. Confirm the database allows connections from Render's public internet egress.
+
+If the API logs show Prisma error P1001 or cannot reach the database host, the issue is database network reachability, not Prisma code.
 
 ### 4.5 Create Render API Key (for GitHub Actions)
 

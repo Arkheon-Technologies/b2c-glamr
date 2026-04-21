@@ -1,0 +1,458 @@
+const DEFAULT_API_BASE_URL = "http://localhost:4000/api/v1";
+
+const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_BASE_URL).replace(/\/$/, "");
+
+interface ErrorEnvelope {
+  ok?: false;
+  error?: {
+    message?: string;
+  };
+}
+
+interface SuccessEnvelope<T> {
+  ok?: true;
+  data?: T;
+}
+
+function readAccessToken() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = localStorage.getItem('glamr.auth.session');
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as { access_token?: string };
+    return parsed.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function authHeaders(): HeadersInit | undefined {
+  const accessToken = readAccessToken();
+
+  if (!accessToken) {
+    return undefined;
+  }
+
+  return {
+    Authorization: `Bearer ${accessToken}`,
+  };
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
+    ...init,
+  });
+
+  const payload = (await response.json().catch(() => undefined)) as
+    | ErrorEnvelope
+    | SuccessEnvelope<T>
+    | undefined;
+
+  const data =
+    payload && "data" in payload
+      ? (payload.data as T | undefined)
+      : undefined;
+  const errorMessage =
+    payload && "error" in payload
+      ? payload.error?.message
+      : undefined;
+
+  if (!response.ok || payload?.ok === false || !data) {
+    throw new Error(errorMessage || "Request failed. Please try again.");
+  }
+
+  return data;
+}
+
+export interface ServiceListItem {
+  id: string;
+  business_id: string;
+  name: string;
+  description: string | null;
+  currency: string;
+  price_type: string;
+  price_cents: number | null;
+  price_max_cents: number | null;
+  duration_active_min: number;
+  duration_processing_min: number;
+  duration_finish_min: number;
+  vertical: {
+    slug: string;
+    name: string;
+  } | null;
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
+
+export interface ServiceDetails {
+  id: string;
+  business_id: string;
+  location_id: string | null;
+  name: string;
+  description: string | null;
+  currency: string;
+  price_type: string;
+  price_cents: number | null;
+  price_max_cents: number | null;
+  duration_active_min: number;
+  duration_processing_min: number;
+  duration_finish_min: number;
+  patch_test_required: boolean;
+  consultation_required: boolean;
+  booking_notice_hours: number;
+  rebooking_interval_days: number | null;
+  photo_urls: string[];
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+    isVerified: boolean;
+  };
+  staff: Array<{
+    id: string;
+    displayName: string;
+    isActive: boolean;
+  }>;
+}
+
+export interface AvailableSlot {
+  staffId: string;
+  staffName: string;
+  startAt: string;
+  endAt: string;
+  phases: Array<{
+    phase: "active" | "processing" | "finish";
+    startAt: string;
+    endAt: string;
+    technicianRequired: boolean;
+  }>;
+  priceCents: number;
+  currency: string;
+  available: boolean;
+}
+
+export interface BookingRecord {
+  id: string;
+  business_id: string;
+  service_id: string;
+  staff_id: string;
+  customer_id: string | null;
+  start_at: string;
+  end_at: string;
+  status: string;
+}
+
+export type QueueStatus =
+  | "waiting"
+  | "notified"
+  | "serving"
+  | "served"
+  | "cancelled"
+  | "no_show";
+
+export interface QueueEntry {
+  id: string;
+  business_id: string;
+  location_id: string;
+  customer_name: string;
+  phone: string | null;
+  customer_id: string | null;
+  service_id: string | null;
+  service_name: string | null;
+  staff_preference: string | null;
+  position: number;
+  estimated_wait_min: number | null;
+  joined_at: string;
+  notified_at: string | null;
+  served_at: string | null;
+  status: QueueStatus;
+}
+
+export interface PortfolioListItem {
+  id: string;
+  business_id: string;
+  technician_id: string;
+  service_vertical: string | null;
+  service_name: string | null;
+  tags: string[];
+  consent_type: string;
+  is_watermarked: boolean;
+  is_published: boolean;
+  view_count: number;
+  book_tap_count: number;
+  created_at: string;
+  image_urls: {
+    before: string | null;
+    after: string | null;
+    healed: string | null;
+    before_thumb: string | null;
+    after_thumb: string | null;
+    watermarked_after: string | null;
+    primary: string | null;
+  };
+  technician: {
+    id: string;
+    display_name: string;
+    slug: string | null;
+    avatar_url: string | null;
+    avg_rating: number | null;
+  };
+  business: {
+    id: string;
+    name: string;
+    slug: string;
+    logo_url: string | null;
+    is_verified: boolean;
+  };
+}
+
+export type PortfolioUploadVariant =
+  | 'before'
+  | 'after'
+  | 'healed'
+  | 'before_thumb'
+  | 'after_thumb'
+  | 'watermarked_after';
+
+export interface PortfolioUploadIntent {
+  upload_url: string;
+  method: 'PUT';
+  asset_url: string;
+  asset_key: string;
+  expires_in: number;
+  required_headers: Record<string, string>;
+}
+
+export async function fetchServices(search?: string) {
+  const params = new URLSearchParams();
+  if (search?.trim()) {
+    params.set("search", search.trim());
+  }
+
+  const path = params.size ? `/services?${params.toString()}` : "/services";
+  const data = await request<{ services: ServiceListItem[] }>(path);
+  return data.services;
+}
+
+export async function fetchPortfolio(params?: {
+  business_id?: string;
+  technician_id?: string;
+  vertical?: string;
+  tag?: string;
+  search?: string;
+  limit?: number;
+  include_unpublished?: boolean;
+}) {
+  const query = new URLSearchParams();
+
+  if (params?.business_id?.trim()) {
+    query.set('business_id', params.business_id.trim());
+  }
+
+  if (params?.technician_id?.trim()) {
+    query.set('technician_id', params.technician_id.trim());
+  }
+
+  if (params?.vertical?.trim()) {
+    query.set('vertical', params.vertical.trim());
+  }
+
+  if (params?.tag?.trim()) {
+    query.set('tag', params.tag.trim());
+  }
+
+  if (params?.search?.trim()) {
+    query.set('search', params.search.trim());
+  }
+
+  if (params?.limit != null) {
+    query.set('limit', String(params.limit));
+  }
+
+  if (params?.include_unpublished != null) {
+    query.set('include_unpublished', String(params.include_unpublished));
+  }
+
+  const path = query.size ? `/portfolio?${query.toString()}` : '/portfolio';
+  const data = await request<{ items: PortfolioListItem[] }>(path);
+  return data.items;
+}
+
+export async function createPortfolioItem(payload: {
+  business_id: string;
+  technician_id: string;
+  appointment_id?: string;
+  before_url?: string;
+  after_url: string;
+  healed_url?: string;
+  before_thumb_url?: string;
+  after_thumb_url?: string;
+  service_vertical?: string;
+  service_name?: string;
+  tags?: string[];
+  consent_type?: string;
+  is_published?: boolean;
+  is_watermarked?: boolean;
+  watermarked_after_url?: string;
+}) {
+  const data = await request<{ item: PortfolioListItem }>('/portfolio', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return data.item;
+}
+
+export async function createPortfolioUploadIntent(payload: {
+  business_id: string;
+  file_name: string;
+  content_type: string;
+  variant: PortfolioUploadVariant;
+}) {
+  const data = await request<{ upload: PortfolioUploadIntent }>('/portfolio/uploads/presign', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+
+  return data.upload;
+}
+
+export async function uploadFileToPresignedUrl(
+  intent: PortfolioUploadIntent,
+  file: File,
+) {
+  const headers = new Headers(intent.required_headers ?? {});
+  if (!headers.has('Content-Type') && file.type) {
+    headers.set('Content-Type', file.type);
+  }
+
+  const response = await fetch(intent.upload_url, {
+    method: intent.method,
+    headers,
+    body: file,
+  });
+
+  if (!response.ok) {
+    throw new Error('Upload failed while transferring image to storage');
+  }
+
+  return intent.asset_url;
+}
+
+export async function updatePortfolioPublishState(
+  itemId: string,
+  isPublished: boolean,
+) {
+  const data = await request<{ item: PortfolioListItem }>(`/portfolio/${itemId}/publish`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ is_published: isPublished }),
+  });
+
+  return data.item;
+}
+
+export async function trackPortfolioBookTap(itemId: string) {
+  const data = await request<{ tracked: boolean; item_id: string; book_tap_count: number }>(
+    `/portfolio/${itemId}/book-tap`,
+    {
+      method: 'POST',
+    },
+  );
+
+  return data;
+}
+
+export async function fetchServiceById(serviceId: string) {
+  const data = await request<{ service: ServiceDetails }>(`/services/${serviceId}`);
+  return data.service;
+}
+
+export async function fetchAvailability(serviceId: string, date: string) {
+  const params = new URLSearchParams({
+    service_id: serviceId,
+    date,
+  });
+
+  const data = await request<{
+    service_id: string;
+    service_name: string;
+    date: string;
+    slots: AvailableSlot[];
+  }>(`/scheduling/availability?${params.toString()}`);
+
+  return data.slots;
+}
+
+export async function createBooking(payload: {
+  service_id: string;
+  staff_id: string;
+  start_at: string;
+}) {
+  const data = await request<{ booking: BookingRecord }>("/bookings", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  return data.booking;
+}
+
+export async function listQueueEntries(params: {
+  business_id: string;
+  location_id?: string;
+  status?: QueueStatus;
+}) {
+  const query = new URLSearchParams({ business_id: params.business_id });
+
+  if (params.location_id?.trim()) {
+    query.set("location_id", params.location_id.trim());
+  }
+
+  if (params.status) {
+    query.set("status", params.status);
+  }
+
+  const data = await request<{ entries: QueueEntry[] }>(`/queue?${query.toString()}`);
+  return data.entries;
+}
+
+export async function joinQueue(payload: {
+  business_id: string;
+  location_id?: string;
+  customer_name: string;
+  phone?: string;
+  customer_id?: string;
+  service_id?: string;
+  staff_preference?: string;
+}) {
+  const data = await request<{ entry: QueueEntry }>("/queue/join", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  return data.entry;
+}
+
+export async function updateQueueEntryStatus(entryId: string, status: QueueStatus) {
+  const data = await request<{ entry: QueueEntry }>(`/queue/${entryId}/status`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+
+  return data.entry;
+}

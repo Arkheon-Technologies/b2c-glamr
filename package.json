@@ -18,7 +18,13 @@
     "db:generate": "npm run generate --workspace=@glamr/db",
     "db:push": "npm run push --workspace=@glamr/db",
     "db:migrate": "npm run migrate --workspace=@glamr/db",
-    "db:studio": "npm run studio --workspace=@glamr/db"
+    "db:studio": "npm run studio --workspace=@glamr/db",
+    "deploy:staging": "./scripts/deploy.sh staging",
+    "deploy:staging:api": "./scripts/deploy-api.sh staging",
+    "deploy:staging:web": "./scripts/deploy-web.sh staging",
+    "deploy:production": "./scripts/deploy.sh production",
+    "deploy:production:api": "./scripts/deploy-api.sh production",
+    "deploy:production:web": "./scripts/deploy-web.sh production"
   },
   "devDependencies": {
     "turbo": "^2.4.0",

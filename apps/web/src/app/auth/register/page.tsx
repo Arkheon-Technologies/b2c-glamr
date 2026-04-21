@@ -2,22 +2,47 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { persistAuthSession, registerWithEmail } from "@/lib/auth-client";
 
 type Role = "professional" | "client";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [role, setRole] = useState<Role>("professional");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
-    // TODO: wire to POST /api/v1/auth/register
-    await new Promise((r) => setTimeout(r, 800));
-    setIsLoading(false);
+    setErrorMessage("");
+
+    if (password.length < 8) {
+      setErrorMessage("Password must be at least 8 characters.");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await registerWithEmail({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      persistAuthSession(response.data);
+      localStorage.setItem("glamr.auth.role", role);
+      router.push("/explore");
+    } catch (error) {
+      const fallbackMessage = "Unable to create account right now. Please try again.";
+      setErrorMessage(error instanceof Error ? error.message : fallbackMessage);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -61,6 +86,15 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
+            {errorMessage && (
+              <div
+                role="alert"
+                className="border border-error/50 bg-error-container/20 px-4 py-3 text-xs font-label uppercase tracking-wider text-error"
+              >
+                {errorMessage}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label className="font-label text-[9px] uppercase tracking-[0.2em] font-bold text-on-surface-variant block" htmlFor="name">
                 Full Name

@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { fetchServices, type ServiceListItem } from "@/lib/mvp-api";
 import { BEAUTY_VERTICALS } from "@glamr/shared-types";
 
 /* ─── Grayscale portrait placeholders ───────────────────────────── */
@@ -33,18 +37,6 @@ function Portrait({ seed }: { seed: number }) {
   );
 }
 
-/* ─── Placeholder artist data ────────────────────────────────────── */
-const ARTISTS = [
-  { name: "ELARA VANCE",  specialty: "SKIN ARCHITECT & PEELS",   rating: 4.9, price: 340, badge: "SENIOR ARTIST", badgeBlue: false },
-  { name: "JULIAN MARX",  specialty: "FACIAL RECONSTRUCTION",    rating: 5.0, price: 450, badge: "TOP RATED",    badgeBlue: true  },
-  { name: "SOPHIA CHEN",  specialty: "LASER & PIGMENTATION",     rating: 4.8, price: 290, badge: null,           badgeBlue: false },
-  { name: "MARCUS RAE",   specialty: "INJECTABLES & VOLUME",     rating: 4.7, price: 520, badge: null,           badgeBlue: false },
-  { name: "AMARA DIALLO", specialty: "BALAYAGE & COLOUR",        rating: 4.9, price: 195, badge: "TOP RATED",    badgeBlue: true  },
-  { name: "JADE OKAFOR",  specialty: "STRUCTURAL GEL & NAILS",   rating: 4.8, price: 95,  badge: "SENIOR ARTIST",badgeBlue: false },
-  { name: "NADIA BLANC",  specialty: "BROW ARCHITECTURE",        rating: 4.9, price: 140, badge: null,           badgeBlue: false },
-  { name: "THEO WEST",    specialty: "BARBERING & FADE DESIGN",  rating: 4.7, price: 80,  badge: null,           badgeBlue: false },
-];
-
 const VERTICAL_LABELS: Record<string, string> = {
   hair: "Hair",
   barbershop: "Barbershop",
@@ -61,7 +53,95 @@ const VERTICAL_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+function formatMoney(cents: number, currency: string) {
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency,
+  }).format(cents / 100);
+}
+
+function formatServicePrice(service: ServiceListItem) {
+  if (service.price_type === "range" && service.price_cents != null && service.price_max_cents != null) {
+    return `${formatMoney(service.price_cents, service.currency)} - ${formatMoney(service.price_max_cents, service.currency)}`;
+  }
+
+  if (service.price_cents != null) {
+    return formatMoney(service.price_cents, service.currency);
+  }
+
+  if (service.price_max_cents != null) {
+    return `From ${formatMoney(service.price_max_cents, service.currency)}`;
+  }
+
+  return "On consultation";
+}
+
+function totalDuration(service: ServiceListItem) {
+  return (
+    service.duration_active_min +
+    service.duration_processing_min +
+    service.duration_finish_min
+  );
+}
+
 export default function ExplorePage() {
+  const [services, setServices] = useState<ServiceListItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [selectedVertical, setSelectedVertical] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadServices() {
+      setIsLoading(true);
+      setErrorMessage("");
+
+      try {
+        const result = await fetchServices();
+        if (!isCancelled) {
+          setServices(result);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          const fallback = "Unable to load live discovery right now.";
+          setErrorMessage(error instanceof Error ? error.message : fallback);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadServices();
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const filteredServices = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return services.filter((service) => {
+      if (selectedVertical !== "all") {
+        if (service.vertical?.slug !== selectedVertical) {
+          return false;
+        }
+      }
+
+      if (!term) {
+        return true;
+      }
+
+      const inService = service.name.toLowerCase().includes(term);
+      const inDescription = service.description?.toLowerCase().includes(term);
+      const inBusiness = service.business?.name.toLowerCase().includes(term);
+      return inService || inDescription || inBusiness;
+    });
+  }, [search, selectedVertical, services]);
+
   return (
     <>
       <Navbar />
@@ -85,6 +165,8 @@ export default function ExplorePage() {
               <input
                 type="text"
                 placeholder="Search by name or specialty…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
                 className="w-full bg-transparent border border-outline-variant pl-10 pr-4 py-3 text-xs font-label uppercase tracking-widest placeholder:text-outline/50 focus:border-primary-fixed focus:outline-none transition-colors"
               />
             </div>
@@ -92,13 +174,19 @@ export default function ExplorePage() {
 
           {/* Vertical filter pills */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-            <button className="flex-shrink-0 font-label text-[10px] tracking-[0.2em] font-bold uppercase py-2 px-5 bg-primary text-white">
+            <button
+              type="button"
+              onClick={() => setSelectedVertical("all")}
+              className={`flex-shrink-0 font-label text-[10px] tracking-[0.2em] uppercase py-2 px-5 transition-colors ${selectedVertical === "all" ? "font-bold bg-primary text-white" : "font-medium border border-outline-variant hover:border-primary-fixed hover:text-primary-fixed"}`}
+            >
               All
             </button>
             {BEAUTY_VERTICALS.map((v) => (
               <button
+                type="button"
                 key={v}
-                className="flex-shrink-0 font-label text-[10px] tracking-[0.2em] font-medium uppercase py-2 px-5 border border-outline-variant hover:border-primary-fixed hover:text-primary-fixed transition-colors"
+                onClick={() => setSelectedVertical(v)}
+                className={`flex-shrink-0 font-label text-[10px] tracking-[0.2em] uppercase py-2 px-5 transition-colors ${selectedVertical === v ? "font-bold bg-primary text-white" : "font-medium border border-outline-variant hover:border-primary-fixed hover:text-primary-fixed"}`}
               >
                 {VERTICAL_LABELS[v] ?? v}
               </button>
@@ -109,10 +197,10 @@ export default function ExplorePage() {
         {/* Results count */}
         <div className="max-w-7xl mx-auto px-8 pb-4 flex justify-between items-center">
           <span className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-            {ARTISTS.length} Professionals Matched
+            {filteredServices.length} Services Matched
           </span>
           <span className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-            Sort: Top Rated
+            Source: Live API
           </span>
         </div>
       </div>
@@ -120,60 +208,81 @@ export default function ExplorePage() {
       {/* ── Artist Grid ───────────────────────────────────────────── */}
       <main className="bg-surface-container-low min-h-screen">
         <div className="max-w-7xl mx-auto px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-outline-variant/20 border border-outline-variant/20">
-            {ARTISTS.map((artist, i) => (
-              <div
-                key={artist.name}
-                className={`bg-surface group transition-all duration-300 hover:bg-surface-container-lowest flex flex-col ${artist.badge && artist.badgeBlue ? "border-2 border-primary-fixed relative" : ""}`}
+          {errorMessage && (
+            <div className="border border-error/50 bg-error-container/20 px-4 py-3 text-xs font-label uppercase tracking-wider text-error mb-6">
+              {errorMessage}
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="border border-outline-variant/30 bg-surface-container-lowest p-8 text-center font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
+              Loading live discovery...
+            </div>
+          ) : filteredServices.length === 0 ? (
+            <div className="border border-outline-variant/30 bg-surface-container-lowest p-8 text-center">
+              <p className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
+                No services match your filters yet.
+              </p>
+              <Link
+                href="/book"
+                className="inline-block mt-4 bg-primary-fixed text-white font-label text-[10px] font-bold uppercase tracking-widest px-5 py-2.5 hover:bg-primary transition-colors"
               >
-                {/* selected indicator */}
-                {artist.badge && artist.badgeBlue && (
-                  <div className="absolute -top-px -left-px bg-primary-fixed text-white p-1.5">
-                    <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
-                  </div>
-                )}
-
-                {/* Portrait */}
-                <div className="relative aspect-square overflow-hidden bg-surface-dim">
-                  <Portrait seed={i} />
-                  <div className="absolute inset-0 group-hover:bg-primary/5 transition-colors duration-500" />
-                  {artist.badge && (
-                    <div className={`absolute top-4 right-4 text-[9px] font-black uppercase tracking-widest px-3 py-1 ${artist.badgeBlue ? "bg-primary-fixed text-white" : "bg-primary text-white"}`}>
-                      {artist.badge}
-                    </div>
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="p-6 flex flex-col flex-1 gap-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-headline text-lg font-bold tracking-tight">{artist.name}</h3>
-                      <p className={`font-label text-[10px] uppercase tracking-[0.2em] font-semibold mt-0.5 ${artist.badgeBlue ? "text-primary-fixed" : "text-on-surface-variant"}`}>
-                        {artist.specialty}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1 text-primary-fixed flex-shrink-0">
-                      <span className="material-symbols-outlined text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="font-label text-xs font-black">{artist.rating}</span>
-                    </div>
+                View Booking Catalog
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-outline-variant/20 border border-outline-variant/20">
+              {filteredServices.map((service, i) => (
+                <article
+                  key={service.id}
+                  className="bg-surface group transition-all duration-300 hover:bg-surface-container-lowest flex flex-col"
+                >
+                  <div className="relative aspect-square overflow-hidden bg-surface-dim">
+                    <Portrait seed={i} />
+                    <div className="absolute inset-0 group-hover:bg-primary/5 transition-colors duration-500" />
+                    {service.vertical?.name && (
+                      <div className="absolute top-4 right-4 text-[9px] font-black uppercase tracking-widest px-3 py-1 bg-primary text-white">
+                        {service.vertical.name}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex justify-between items-center pt-3 border-t border-outline-variant/20 mt-auto">
-                    <span className="font-label text-xs font-bold uppercase tracking-widest">
-                      £{artist.price} / SESSION
-                    </span>
-                    <Link
-                      href="/auth/register"
-                      className={`font-label text-[10px] font-black uppercase tracking-widest px-6 py-2.5 transition-all ${artist.badgeBlue ? "bg-primary-fixed text-white" : "bg-primary text-white hover:bg-primary-fixed group-hover:px-8"}`}
-                    >
-                      {artist.badgeBlue ? "Selected" : "Select"}
-                    </Link>
+                  <div className="p-6 flex flex-col flex-1 gap-4">
+                    <div className="flex justify-between items-start gap-3">
+                      <div>
+                        <h3 className="font-headline text-lg font-bold tracking-tight">
+                          {service.business?.name || "Independent Studio"}
+                        </h3>
+                        <p className="font-label text-[10px] uppercase tracking-[0.2em] font-semibold mt-0.5 text-on-surface-variant">
+                          {service.name}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 text-primary-fixed flex-shrink-0">
+                        <span className="material-symbols-outlined text-xs">schedule</span>
+                        <span className="font-label text-xs font-black">{totalDuration(service)}m</span>
+                      </div>
+                    </div>
+
+                    <p className="font-body text-xs text-on-surface-variant line-clamp-2 min-h-8">
+                      {service.description || "Precision service delivered with split-phase scheduling support."}
+                    </p>
+
+                    <div className="flex justify-between items-center pt-3 border-t border-outline-variant/20 mt-auto gap-2">
+                      <span className="font-label text-xs font-bold uppercase tracking-widest">
+                        {formatServicePrice(service)}
+                      </span>
+                      <Link
+                        href={`/book/${service.id}`}
+                        className="font-label text-[10px] font-black uppercase tracking-widest px-5 py-2.5 bg-primary text-white hover:bg-primary-fixed transition-colors"
+                      >
+                        Select
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 

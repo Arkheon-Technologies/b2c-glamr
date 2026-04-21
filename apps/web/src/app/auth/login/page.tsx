@@ -2,18 +2,35 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { loginWithEmail, persistAuthSession } from "@/lib/auth-client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
-    // TODO: wire to POST /api/v1/auth/login
-    await new Promise((r) => setTimeout(r, 800));
-    setIsLoading(false);
+    setErrorMessage("");
+
+    try {
+      const response = await loginWithEmail({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      persistAuthSession(response.data);
+      router.push("/explore");
+    } catch (error) {
+      const fallbackMessage = "Unable to sign in right now. Please try again.";
+      setErrorMessage(error instanceof Error ? error.message : fallbackMessage);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -39,6 +56,15 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
+            {errorMessage && (
+              <div
+                role="alert"
+                className="border border-error/50 bg-error-container/20 px-4 py-3 text-xs font-label uppercase tracking-wider text-error"
+              >
+                {errorMessage}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <label className="font-label text-[9px] uppercase tracking-[0.2em] font-bold text-on-surface-variant block" htmlFor="email">
                 Email Address

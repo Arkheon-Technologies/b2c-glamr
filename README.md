@@ -171,6 +171,7 @@ Manual setup checklist (Render + Vercel):
 	Set Render Health Check Path to `/api/v1/health`.
 2. Create one free Postgres database in Neon or Supabase and copy its connection string.
 	If using Supabase, append `?sslmode=require` to DATABASE_URL.
+	The database must allow inbound connections from Render; otherwise Prisma will fail with `P1001`.
 3. Open repository settings: `Settings -> Secrets and variables -> Actions`.
 4. Add variables:
 	`RENDER_API_SERVICE_ID` (or env-specific IDs), `VERCEL_ORG_ID`, `VERCEL_WEB_PROJECT_ID`.

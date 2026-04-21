@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../database/prisma.service';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 /**
  * Auth response shapes per AUTH-BASELINE-CONTRACT.md
@@ -23,6 +23,8 @@ export interface SessionPayload {
 export class AuthService {
   private readonly accessTtlSeconds: number;
   private readonly refreshTtlDays: number;
+  private readonly resetTokenTtlMinutes: number;
+  private readonly refreshTokenPepper: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -31,6 +33,8 @@ export class AuthService {
   ) {
     this.accessTtlSeconds = this.config.get<number>('JWT_ACCESS_TTL_SECONDS', 900);
     this.refreshTtlDays = this.config.get<number>('JWT_REFRESH_TTL_DAYS', 7);
+    this.resetTokenTtlMinutes = this.config.get<number>('AUTH_RESET_TOKEN_TTL_MINUTES', 30);
+    this.refreshTokenPepper = this.config.get<string>('JWT_SECRET', 'glamr-dev-secret');
   }
 
   // POST /auth/register
@@ -147,9 +151,36 @@ export class AuthService {
     });
 
     if (user) {
-      // TODO: Generate reset token and send email via SendGrid
-      // const resetToken = randomUUID();
-      // await sendResetEmail(user.email, resetToken);
+      const resetToken = randomUUID();
+      const tokenHash = this.hashResetToken(resetToken);
+      const expiresAt = new Date(Date.now() + this.resetTokenTtlMinutes * 60_000);
+      const resetLink = this.buildResetLink(resetToken);
+
+      await this.prisma.passwordResetToken.updateMany({
+        where: {
+          userId: user.id,
+          usedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        data: {
+          usedAt: new Date(),
+        },
+      });
+
+      await this.prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+        },
+      });
+
+      const emailSent = await this.sendPasswordResetEmail(user.email, resetLink);
+
+      // Development fallback so token-based reset can still be tested end-to-end.
+      if (!emailSent && this.config.get<string>('APP_ENV', 'development') !== 'production') {
+        console.log(`[auth] password reset token for ${user.email}: ${resetToken}`);
+      }
     }
 
     return {
@@ -163,9 +194,51 @@ export class AuthService {
 
   // POST /auth/reset-password
   async resetPassword(token: string, newPassword: string) {
-    // TODO: Validate reset token, find user, update password
-    // For now, return the contract shape
+    const tokenHash = this.hashResetToken(token);
+    const resetTokenRecord = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        tokenHash,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        userId: true,
+      },
+    });
+
+    if (!resetTokenRecord) {
+      throw new UnauthorizedException({
+        ok: false,
+        error: {
+          code: 'AUTH_RESET_TOKEN_INVALID',
+          message: 'Reset token is invalid or expired',
+          request_id: randomUUID(),
+        },
+      });
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: resetTokenRecord.userId },
+        data: { passwordHash },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: resetTokenRecord.id },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: {
+          userId: resetTokenRecord.userId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      }),
+    ]);
 
     return {
       ok: true,
@@ -177,9 +250,11 @@ export class AuthService {
 
   // POST /auth/refresh-token
   async refreshToken(refreshTokenValue: string) {
+    const refreshTokenHash = this.hashRefreshToken(refreshTokenValue);
+
     const storedToken = await this.prisma.refreshToken.findFirst({
       where: {
-        tokenHash: refreshTokenValue,
+        tokenHash: { in: [refreshTokenHash, refreshTokenValue] },
         revokedAt: null,
         expiresAt: { gt: new Date() },
       },
@@ -212,9 +287,11 @@ export class AuthService {
 
   // POST /auth/logout
   async logout(refreshTokenValue: string) {
+    const refreshTokenHash = this.hashRefreshToken(refreshTokenValue);
+
     await this.prisma.refreshToken.updateMany({
       where: {
-        tokenHash: refreshTokenValue,
+        tokenHash: { in: [refreshTokenHash, refreshTokenValue] },
         revokedAt: null,
       },
       data: { revokedAt: new Date() },
@@ -243,7 +320,7 @@ export class AuthService {
     await this.prisma.refreshToken.create({
       data: {
         userId,
-        tokenHash: refreshTokenValue, // TODO: hash before storing in production
+        tokenHash: this.hashRefreshToken(refreshTokenValue),
         expiresAt: refreshExpiresAt,
       },
     });
@@ -254,6 +331,73 @@ export class AuthService {
       expires_in: this.accessTtlSeconds,
       token_type: 'Bearer',
     };
+  }
+
+  private hashRefreshToken(tokenValue: string) {
+    return createHash('sha256')
+      .update(`${tokenValue}:${this.refreshTokenPepper}`)
+      .digest('hex');
+  }
+
+  private hashResetToken(tokenValue: string) {
+    return createHash('sha256')
+      .update(`${tokenValue}:${this.refreshTokenPepper}`)
+      .digest('hex');
+  }
+
+  private buildResetLink(token: string) {
+    const frontendUrl = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    const baseUrl = frontendUrl.replace(/\/$/, '');
+    return `${baseUrl}/auth/reset-password?token=${encodeURIComponent(token)}`;
+  }
+
+  private async sendPasswordResetEmail(email: string, resetLink: string) {
+    const sendgridApiKey = this.config.get<string>('SENDGRID_API_KEY', '').trim();
+    const fromEmail = this.config.get<string>('SENDGRID_FROM_EMAIL', '').trim();
+
+    if (!sendgridApiKey || !fromEmail) {
+      return false;
+    }
+
+    try {
+      const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${sendgridApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personalizations: [
+            {
+              to: [{ email }],
+              subject: 'Reset your GLAMR password',
+            },
+          ],
+          from: { email: fromEmail, name: 'GLAMR' },
+          content: [
+            {
+              type: 'text/plain',
+              value: `We received a request to reset your GLAMR password.\n\nUse this link to continue:\n${resetLink}\n\nThis link expires in ${this.resetTokenTtlMinutes} minutes.`,
+            },
+            {
+              type: 'text/html',
+              value: `<p>We received a request to reset your GLAMR password.</p><p><a href="${resetLink}">Reset Password</a></p><p>This link expires in ${this.resetTokenTtlMinutes} minutes.</p>`,
+            },
+          ],
+        }),
+      });
+
+      if (response.ok) {
+        return true;
+      }
+
+      const details = await response.text().catch(() => 'no response body');
+      console.error(`[auth] sendgrid reset email failed (${response.status}): ${details}`);
+      return false;
+    } catch (error) {
+      console.error('[auth] sendgrid reset email request failed', error);
+      return false;
+    }
   }
 
   async validateUser(userId: string) {

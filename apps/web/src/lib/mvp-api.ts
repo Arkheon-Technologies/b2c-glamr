@@ -74,6 +74,83 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
+// ─── Extended booking record for detail view ────────────────────────────────
+
+export interface BookingDetail {
+  id: string;
+  start_at: string;
+  end_at: string;
+  status: string;
+  notes: string | null;
+  service: {
+    id: string;
+    name: string;
+    price_cents: number | null;
+    currency: string;
+    duration_active_min: number;
+    duration_processing_min: number;
+    duration_finish_min: number;
+  } | null;
+  staff: { id: string; display_name: string } | null;
+  business: { id: string; name: string; slug: string } | null;
+  location: { city: string; address: string | null } | null;
+}
+
+export interface BookingSummary {
+  id: string;
+  start_at: string;
+  end_at: string;
+  status: string;
+  service: { id: string; name: string; price_cents: number | null; currency: string } | null;
+  staff: { id: string; display_name: string } | null;
+  business: { id: string; name: string; slug: string } | null;
+  location: { city: string; address: string | null } | null;
+}
+
+// ─── User profile types ──────────────────────────────────────────────────────
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  created_at: string;
+  referral_code: string | null;
+  total_bookings: number;
+}
+
+// ─── Business profile type ───────────────────────────────────────────────────
+
+export interface BusinessProfile {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  about: string | null;
+  logo_url: string | null;
+  cover_image_url: string | null;
+  is_verified: boolean;
+  total_bookings: number;
+  location: { city: string; neighborhood: string | null; countryCode: string } | null;
+  services: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    price_cents: number | null;
+    price_max_cents: number | null;
+    currency: string;
+    duration_active_min: number;
+    duration_processing_min: number;
+    duration_finish_min: number;
+    vertical: { slug: string; name: string } | null;
+  }>;
+  staff: Array<{
+    id: string;
+    display_name: string;
+    role: string;
+    avg_rating: number | null;
+  }>;
+}
+
 export interface ServiceListItem {
   id: string;
   business_id: string;
@@ -406,6 +483,7 @@ export async function createBooking(payload: {
 }) {
   const data = await request<{ booking: BookingRecord }>("/bookings", {
     method: "POST",
+    headers: authHeaders(),
     body: JSON.stringify(payload),
   });
 
@@ -455,4 +533,240 @@ export async function updateQueueEntryStatus(entryId: string, status: QueueStatu
   });
 
   return data.entry;
+}
+
+// ─── User profile ─────────────────────────────────────────────────────────────
+
+export async function getMe() {
+  const data = await request<{ user: UserProfile }>("/users/me", {
+    headers: authHeaders(),
+  });
+  return data.user;
+}
+
+export async function updateMe(payload: { fullName?: string }) {
+  const data = await request<{ user: { id: string; email: string; name: string } }>("/users/me", {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return data.user;
+}
+
+// ─── My bookings ──────────────────────────────────────────────────────────────
+
+export async function getMyBookings(status?: "upcoming" | "past" | "all") {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  const path = params.size ? `/bookings?${params.toString()}` : "/bookings";
+  const data = await request<{ bookings: BookingSummary[] }>(path, {
+    headers: authHeaders(),
+  });
+  return data.bookings;
+}
+
+export async function getBookingById(id: string) {
+  const data = await request<{ booking: BookingDetail }>(`/bookings/${id}`, {
+    headers: authHeaders(),
+  });
+  return data.booking;
+}
+
+export async function cancelBookingById(id: string, reason?: string) {
+  const data = await request<{ booking: BookingRecord }>(`/bookings/${id}/cancel`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ reason }),
+  });
+  return data.booking;
+}
+
+// ─── Business public profile ──────────────────────────────────────────────────
+
+export async function fetchBusinessProfile(slug: string) {
+  const data = await request<{ business: BusinessProfile }>(`/businesses/${slug}/profile`);
+  return data.business;
+}
+
+// ─── Business management (studio) ────────────────────────────────────────────
+
+export interface BusinessSummary {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  about: string | null;
+  logo_url: string | null;
+  is_verified: boolean;
+  total_bookings: number;
+}
+
+export async function createBusiness(payload: {
+  name: string;
+  businessType: string;
+  about?: string;
+  address: { line1: string; city: string; countryCode: string; timezone: string; latitude?: number; longitude?: number };
+  verticalIds?: string[];
+}) {
+  const data = await request<{ business: BusinessSummary }>("/businesses", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return data.business;
+}
+
+export async function getBusinessById(id: string) {
+  const data = await request<{ business: BusinessSummary }>(`/businesses/${id}`);
+  return data.business;
+}
+
+export async function updateBusiness(id: string, payload: { name?: string; about?: string; logoUrl?: string }) {
+  const data = await request<{ business: BusinessSummary }>(`/businesses/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return data.business;
+}
+
+export async function getBusinessBookings(businessId: string, status?: string) {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  const path = params.size ? `/businesses/${businessId}/bookings?${params.toString()}` : `/businesses/${businessId}/bookings`;
+  const data = await request<{ bookings: BookingSummary[] }>(path, {
+    headers: authHeaders(),
+  });
+  return data.bookings;
+}
+
+// ─── Services management (studio) ────────────────────────────────────────────
+
+export async function createService(payload: {
+  businessId: string;
+  name: string;
+  durationActiveMin: number;
+  durationProcessingMin?: number;
+  durationFinishMin?: number;
+  priceCents: number;
+  currency: string;
+  verticalId?: string;
+  description?: string;
+}) {
+  const data = await request<{ service: ServiceListItem }>("/services", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return data.service;
+}
+
+export async function updateService(id: string, payload: {
+  name?: string;
+  durationActiveMin?: number;
+  priceCents?: number;
+  description?: string;
+  isActive?: boolean;
+}) {
+  const data = await request<{ service: ServiceListItem }>(`/services/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return data.service;
+}
+
+export async function deleteService(id: string) {
+  const data = await request<{ deleted: boolean }>(`/services/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  return data;
+}
+
+export async function assignStaffToService(serviceId: string, staffIds: string[]) {
+  const data = await request<{ assigned: number }>(`/services/${serviceId}/staff`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ staffIds }),
+  });
+  return data;
+}
+
+// ─── Staff management (studio) ───────────────────────────────────────────────
+
+export interface StaffMember {
+  id: string;
+  displayName: string;
+  role: string;
+  isActive: boolean;
+  email?: string | null;
+}
+
+export async function listStaff(businessId: string) {
+  const data = await request<{ staff: StaffMember[] }>(`/staff?businessId=${businessId}`, {
+    headers: authHeaders(),
+  });
+  return data.staff;
+}
+
+export async function createStaff(payload: {
+  businessId: string;
+  displayName: string;
+  role: string;
+  email?: string;
+}) {
+  const data = await request<{ staff: StaffMember }>("/staff", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return data.staff;
+}
+
+export async function updateStaff(id: string, payload: {
+  displayName?: string;
+  role?: string;
+  isActive?: boolean;
+}) {
+  const data = await request<{ staff: StaffMember }>(`/staff/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return data.staff;
+}
+
+// ─── Scheduling (studio) ─────────────────────────────────────────────────────
+
+export interface ScheduleDay {
+  staffId: string;
+  businessId: string;
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isOpen: boolean;
+}
+
+export async function getStaffSchedule(staffId: string) {
+  const data = await request<{ schedule: ScheduleDay[] }>(`/scheduling/schedules/${staffId}`, {
+    headers: authHeaders(),
+  });
+  return data.schedule;
+}
+
+export async function setStaffScheduleDay(payload: {
+  staffId: string;
+  businessId: string;
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
+  isOpen: boolean;
+}) {
+  const data = await request<{ schedule: ScheduleDay }>("/scheduling/schedules", {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+  return data.schedule;
 }

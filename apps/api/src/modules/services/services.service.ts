@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { randomUUID } from 'crypto';
 import { ListServicesDto } from './dto/list-services.dto';
+import { CreateServiceDto } from './dto/create-service.dto';
+import { UpdateServiceDto } from './dto/update-service.dto';
 
 @Injectable()
 export class ServicesService {
@@ -173,5 +175,111 @@ export class ServicesService {
         },
       },
     };
+  }
+
+  async createService(ownerId: string, dto: CreateServiceDto) {
+    const business = await this.prisma.business.findUnique({
+      where: { id: dto.businessId },
+      select: { ownerId: true, locations: { select: { id: true }, orderBy: { isPrimary: 'desc' }, take: 1 } },
+    });
+
+    if (!business) {
+      throw new NotFoundException({ ok: false, error: { code: 'BUSINESS_NOT_FOUND', message: 'Business not found', request_id: randomUUID() } });
+    }
+    if (business.ownerId !== ownerId) {
+      throw new ForbiddenException({ ok: false, error: { code: 'SERVICE_ACCESS_DENIED', message: 'You do not own this business', request_id: randomUUID() } });
+    }
+
+    const service = await this.prisma.service.create({
+      data: {
+        businessId: dto.businessId,
+        locationId: business.locations[0]?.id ?? null,
+        name: dto.name,
+        description: dto.description,
+        durationActiveMin: dto.durationActiveMin,
+        durationProcessingMin: dto.durationProcessingMin ?? 0,
+        durationFinishMin: dto.durationFinishMin ?? 0,
+        priceCents: dto.priceCents,
+        currency: dto.currency,
+        priceType: dto.priceCents ? 'fixed' : 'consultation',
+        ...(dto.verticalId ? { verticalId: dto.verticalId } : {}),
+        photoUrls: dto.photoUrls ?? [],
+        isActive: true,
+      },
+      select: { id: true, businessId: true, name: true, priceCents: true, currency: true, durationActiveMin: true, isActive: true },
+    });
+
+    return { ok: true, data: { service } };
+  }
+
+  async updateService(id: string, ownerId: string, dto: UpdateServiceDto) {
+    const existing = await this.prisma.service.findUnique({
+      where: { id },
+      select: { business: { select: { ownerId: true } } },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({ ok: false, error: { code: 'SERVICE_NOT_FOUND', message: 'Service not found', request_id: randomUUID() } });
+    }
+    if (existing.business?.ownerId !== ownerId) {
+      throw new ForbiddenException({ ok: false, error: { code: 'SERVICE_ACCESS_DENIED', message: 'You do not own this service', request_id: randomUUID() } });
+    }
+
+    const service = await this.prisma.service.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.durationActiveMin !== undefined ? { durationActiveMin: dto.durationActiveMin } : {}),
+        ...(dto.priceCents !== undefined ? { priceCents: dto.priceCents } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.photoUrls !== undefined ? { photoUrls: dto.photoUrls } : {}),
+      },
+      select: { id: true, businessId: true, name: true, priceCents: true, currency: true, durationActiveMin: true, isActive: true },
+    });
+
+    return { ok: true, data: { service } };
+  }
+
+  async deleteService(id: string, ownerId: string) {
+    const existing = await this.prisma.service.findUnique({
+      where: { id },
+      select: { business: { select: { ownerId: true } } },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({ ok: false, error: { code: 'SERVICE_NOT_FOUND', message: 'Service not found', request_id: randomUUID() } });
+    }
+    if (existing.business?.ownerId !== ownerId) {
+      throw new ForbiddenException({ ok: false, error: { code: 'SERVICE_ACCESS_DENIED', message: 'You do not own this service', request_id: randomUUID() } });
+    }
+
+    await this.prisma.service.update({ where: { id }, data: { isActive: false } });
+    return { ok: true, data: { deleted: true, id } };
+  }
+
+  async assignStaff(serviceId: string, ownerId: string, staffIds: string[]) {
+    const existing = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      select: { business: { select: { ownerId: true } } },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({ ok: false, error: { code: 'SERVICE_NOT_FOUND', message: 'Service not found', request_id: randomUUID() } });
+    }
+    if (existing.business?.ownerId !== ownerId) {
+      throw new ForbiddenException({ ok: false, error: { code: 'SERVICE_ACCESS_DENIED', message: 'You do not own this service', request_id: randomUUID() } });
+    }
+
+    // Upsert all provided staff assignments
+    await this.prisma.serviceStaff.deleteMany({ where: { serviceId } });
+    if (staffIds.length) {
+      await this.prisma.serviceStaff.createMany({
+        data: staffIds.map((staffId) => ({ serviceId, staffId })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { ok: true, data: { assigned: staffIds.length } };
   }
 }

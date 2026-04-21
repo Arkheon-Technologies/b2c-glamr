@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { getStoredUser, logout, type AuthUser } from "@/lib/auth-client";
 
 const NAV_LINKS = [
   { label: "Platform", href: "/#features" },
@@ -14,7 +15,29 @@ const NAV_LINKS = [
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    setUser(getStoredUser());
+  }, [pathname]);
+
+  async function handleLogout() {
+    await logout();
+    setUser(null);
+    setShowDropdown(false);
+    router.push("/");
+  }
+
+  const linkClass = (path: string) =>
+    [
+      "font-headline font-bold tracking-tight uppercase text-xs transition-colors duration-200",
+      pathname.startsWith(path)
+        ? "text-primary-fixed border-b border-primary-fixed pb-0.5"
+        : "text-primary/60 hover:text-primary-fixed",
+    ].join(" ");
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-surface-container-lowest/90 backdrop-blur-xl border-b border-outline-variant/30">
@@ -35,56 +58,72 @@ export function Navbar() {
               {link.label}
             </a>
           ))}
-          <Link
-            href="/explore"
-            className={[
-              "font-headline font-bold tracking-tight uppercase text-xs transition-colors duration-200",
-              pathname.startsWith("/explore")
-                ? "text-primary-fixed border-b border-primary-fixed pb-0.5"
-                : "text-primary/60 hover:text-primary-fixed",
-            ].join(" ")}
-          >
-            Explore
-          </Link>
-          <Link
-            href="/portfolio"
-            className={[
-              "font-headline font-bold tracking-tight uppercase text-xs transition-colors duration-200",
-              pathname.startsWith("/portfolio") || pathname.startsWith("/studio/portfolio")
-                ? "text-primary-fixed border-b border-primary-fixed pb-0.5"
-                : "text-primary/60 hover:text-primary-fixed",
-            ].join(" ")}
-          >
-            Portfolio
-          </Link>
-          <Link
-            href="/queue"
-            className={[
-              "font-headline font-bold tracking-tight uppercase text-xs transition-colors duration-200",
-              pathname.startsWith("/queue") || pathname.startsWith("/studio/queue")
-                ? "text-primary-fixed border-b border-primary-fixed pb-0.5"
-                : "text-primary/60 hover:text-primary-fixed",
-            ].join(" ")}
-          >
-            Queue
-          </Link>
+          <Link href="/explore" className={linkClass("/explore")}>Explore</Link>
+          <Link href="/portfolio" className={linkClass("/portfolio")}>Portfolio</Link>
+          <Link href="/queue" className={linkClass("/queue")}>Queue</Link>
         </div>
 
         {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-4">
           <ThemeToggle />
-          <Link
-            href="/auth/login"
-            className="font-headline font-bold uppercase tracking-widest text-xs text-primary/60 hover:text-primary transition-colors px-3 py-2"
-          >
-            Log in
-          </Link>
-          <Link
-            href="/book"
-            className="bg-primary-fixed text-white font-headline font-bold uppercase tracking-widest text-xs px-6 py-2.5 hover:bg-primary transition-all duration-300 active:scale-95"
-          >
-            Book Now
-          </Link>
+          {user ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowDropdown((v) => !v)}
+                className="font-headline font-bold uppercase tracking-widest text-xs text-primary/80 hover:text-primary transition-colors px-3 py-2 border border-outline-variant/40 hover:border-primary/40"
+              >
+                {user.name?.split(" ")[0] ?? "Account"} ▾
+              </button>
+              {showDropdown && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-surface-container-lowest border border-outline-variant/30 shadow-lg z-50">
+                  <Link
+                    href="/profile"
+                    className="block px-4 py-3 font-label text-[10px] uppercase tracking-widest hover:bg-surface-container text-primary"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    My Profile
+                  </Link>
+                  <Link
+                    href="/my-bookings"
+                    className="block px-4 py-3 font-label text-[10px] uppercase tracking-widest hover:bg-surface-container text-primary"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    My Bookings
+                  </Link>
+                  <Link
+                    href="/studio/dashboard"
+                    className="block px-4 py-3 font-label text-[10px] uppercase tracking-widest hover:bg-surface-container text-primary"
+                    onClick={() => setShowDropdown(false)}
+                  >
+                    Studio
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-3 font-label text-[10px] uppercase tracking-widest hover:bg-surface-container text-error border-t border-outline-variant/20"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link
+                href="/auth/login"
+                className="font-headline font-bold uppercase tracking-widest text-xs text-primary/60 hover:text-primary transition-colors px-3 py-2"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/book"
+                className="bg-primary-fixed text-white font-headline font-bold uppercase tracking-widest text-xs px-6 py-2.5 hover:bg-primary transition-all duration-300 active:scale-95"
+              >
+                Book Now
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile: theme + hamburger */}
@@ -124,43 +163,21 @@ export function Navbar() {
               {link.label}
             </a>
           ))}
-          <Link
-            href="/explore"
-            className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container"
-            onClick={() => setIsOpen(false)}
-          >
-            Explore
-          </Link>
-          <Link
-            href="/queue"
-            className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container"
-            onClick={() => setIsOpen(false)}
-          >
-            Queue
-          </Link>
-          <Link
-            href="/portfolio"
-            className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container"
-            onClick={() => setIsOpen(false)}
-          >
-            Portfolio
-          </Link>
-          <div className="flex gap-3 px-8 py-4">
-            <Link
-              href="/auth/login"
-              className="flex-1 text-center font-headline font-bold uppercase tracking-widest text-xs border border-outline-variant py-3 hover:border-primary transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Log in
-            </Link>
-            <Link
-              href="/book"
-              className="flex-1 text-center font-headline font-bold uppercase tracking-widest text-xs bg-primary-fixed text-white py-3 hover:bg-primary transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Book Now
-            </Link>
-          </div>
+          <Link href="/explore" className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container" onClick={() => setIsOpen(false)}>Explore</Link>
+          <Link href="/queue" className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container" onClick={() => setIsOpen(false)}>Queue</Link>
+          <Link href="/portfolio" className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container" onClick={() => setIsOpen(false)}>Portfolio</Link>
+          {user ? (
+            <>
+              <Link href="/my-bookings" className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container" onClick={() => setIsOpen(false)}>My Bookings</Link>
+              <Link href="/studio/dashboard" className="block font-headline font-bold uppercase tracking-widest text-xs text-primary px-8 py-4 border-b border-outline-variant/20 hover:bg-surface-container" onClick={() => setIsOpen(false)}>Studio</Link>
+              <button type="button" onClick={handleLogout} className="w-full text-left font-headline font-bold uppercase tracking-widest text-xs text-error px-8 py-4 hover:bg-surface-container">Log Out</button>
+            </>
+          ) : (
+            <div className="flex gap-3 px-8 py-4">
+              <Link href="/auth/login" className="flex-1 text-center font-headline font-bold uppercase tracking-widest text-xs border border-outline-variant py-3 hover:border-primary transition-colors" onClick={() => setIsOpen(false)}>Log in</Link>
+              <Link href="/book" className="flex-1 text-center font-headline font-bold uppercase tracking-widest text-xs bg-primary-fixed text-white py-3 hover:bg-primary transition-colors" onClick={() => setIsOpen(false)}>Book Now</Link>
+            </div>
+          )}
         </div>
       )}
     </nav>

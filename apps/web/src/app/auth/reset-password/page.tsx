@@ -1,12 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { resetPasswordWithToken } from "@/lib/auth-client";
 
 export default function ResetPasswordPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [token, setToken] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    const t = searchParams.get("token");
+    if (t) setToken(t);
+  }, [searchParams]);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -34,6 +42,7 @@ export default function ResetPasswordPage() {
       setIsSuccess(Boolean(response.reset));
       setPassword("");
       setConfirmPassword("");
+      setTimeout(() => router.push("/auth/login"), 2000);
     } catch (error) {
       const fallback = "Unable to reset password. Verify token and try again.";
       setErrorMessage(error instanceof Error ? error.message : fallback);

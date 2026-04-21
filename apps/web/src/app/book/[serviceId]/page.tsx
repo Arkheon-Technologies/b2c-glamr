@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
@@ -10,9 +10,9 @@ import {
   fetchAvailability,
   fetchServiceById,
   type AvailableSlot,
-  type BookingRecord,
   type ServiceDetails,
 } from "@/lib/mvp-api";
+import { getStoredSession, isSessionExpired } from "@/lib/auth-client";
 
 function formatMoney(cents: number | null, currency: string) {
   if (cents == null) {
@@ -43,6 +43,7 @@ function todayDateString() {
 
 export default function BookServicePage() {
   const params = useParams<{ serviceId: string }>();
+  const router = useRouter();
   const serviceId = Array.isArray(params.serviceId)
     ? params.serviceId[0]
     : params.serviceId;
@@ -53,7 +54,6 @@ export default function BookServicePage() {
   const [isLoadingService, setIsLoadingService] = useState(true);
   const [isLoadingSlots, setIsLoadingSlots] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
-  const [booking, setBooking] = useState<BookingRecord | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -118,6 +118,13 @@ export default function BookServicePage() {
   }, [selectedDate, serviceId]);
 
   async function handleBook(slot: AvailableSlot) {
+    // Require auth before booking
+    const session = getStoredSession();
+    if (!session || isSessionExpired()) {
+      router.push(`/auth/login?next=/book/${serviceId}`);
+      return;
+    }
+
     setIsSubmitting(slot.startAt);
     setErrorMessage("");
 
@@ -128,9 +135,7 @@ export default function BookServicePage() {
         start_at: slot.startAt,
       });
 
-      setBooking(response);
-      const refreshedSlots = await fetchAvailability(serviceId, selectedDate);
-      setSlots(refreshedSlots);
+      router.push(`/book/confirmation/${response.id}`);
     } catch (error) {
       const fallback = "Booking could not be completed.";
       setErrorMessage(error instanceof Error ? error.message : fallback);
@@ -168,17 +173,6 @@ export default function BookServicePage() {
           {errorMessage && (
             <div className="border border-error/50 bg-error-container/20 px-4 py-3 text-xs font-label uppercase tracking-wider text-error mb-6">
               {errorMessage}
-            </div>
-          )}
-
-          {booking && (
-            <div className="border border-primary-fixed/40 bg-primary-fixed/10 px-4 py-4 mb-6">
-              <p className="font-label text-[10px] uppercase tracking-[0.2em] text-primary-fixed font-bold mb-2">
-                Booking Confirmed
-              </p>
-              <p className="font-body text-sm text-on-surface-variant">
-                Booking ID: {booking.id} • Status: {booking.status}
-              </p>
             </div>
           )}
 

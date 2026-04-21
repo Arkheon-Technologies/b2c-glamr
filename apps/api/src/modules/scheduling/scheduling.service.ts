@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { randomUUID } from 'crypto';
 import type { AvailableSlot } from '@glamr/shared-types';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
+import { SetScheduleDto } from './dto/set-schedule.dto';
 
 @Injectable()
 export class SchedulingService {
@@ -195,6 +196,102 @@ export class SchedulingService {
         total: slots.length,
       },
     };
+  }
+
+  async setSchedule(ownerId: string, dto: SetScheduleDto) {
+    // Verify the staff member belongs to a business owned by this user
+    const staffMember = await this.prisma.staffMember.findUnique({
+      where: { id: dto.staffId },
+      select: { business: { select: { ownerId: true, id: true } } },
+    });
+
+    if (!staffMember) {
+      throw new NotFoundException({ ok: false, error: { code: 'STAFF_NOT_FOUND', message: 'Staff member not found', request_id: randomUUID() } });
+    }
+    if (staffMember.business?.ownerId !== ownerId) {
+      throw new ForbiddenException({ ok: false, error: { code: 'SCHEDULE_ACCESS_DENIED', message: 'You do not own this business', request_id: randomUUID() } });
+    }
+
+    // Delete existing working-hours entry for this day (isBreak=false means working hours)
+    await this.prisma.schedule.deleteMany({
+      where: {
+        schedulableType: 'staff',
+        schedulableId: dto.staffId,
+        dayOfWeek: dto.dayOfWeek,
+        isBreak: false,
+      },
+    });
+
+    const isOpen = dto.isOpen ?? true;
+
+    if (isOpen) {
+      // Create new working-hours entry
+      await this.prisma.schedule.create({
+        data: {
+          schedulableType: 'staff',
+          schedulableId: dto.staffId,
+          dayOfWeek: dto.dayOfWeek,
+          startTime: dto.openTime,
+          endTime: dto.closeTime,
+          isBreak: false,
+        },
+      });
+    }
+
+    return {
+      ok: true,
+      data: {
+        schedule: {
+          staffId: dto.staffId,
+          businessId: staffMember.business!.id,
+          dayOfWeek: dto.dayOfWeek,
+          openTime: dto.openTime,
+          closeTime: dto.closeTime,
+          isOpen,
+        },
+      },
+    };
+  }
+
+  async getStaffSchedule(staffId: string, ownerId: string) {
+    const staffMember = await this.prisma.staffMember.findUnique({
+      where: { id: staffId },
+      select: { business: { select: { ownerId: true, id: true } } },
+    });
+
+    if (!staffMember) {
+      throw new NotFoundException({ ok: false, error: { code: 'STAFF_NOT_FOUND', message: 'Staff member not found', request_id: randomUUID() } });
+    }
+    if (staffMember.business?.ownerId !== ownerId) {
+      throw new ForbiddenException({ ok: false, error: { code: 'SCHEDULE_ACCESS_DENIED', message: 'You do not own this business', request_id: randomUUID() } });
+    }
+
+    // Fetch working-hours entries (isBreak=false) for this staff member
+    const existingSchedules = await this.prisma.schedule.findMany({
+      where: {
+        schedulableType: 'staff',
+        schedulableId: staffId,
+        isBreak: false,
+      },
+      select: { dayOfWeek: true, startTime: true, endTime: true },
+    });
+
+    const scheduleMap = new Map(existingSchedules.map((s) => [s.dayOfWeek, s]));
+
+    // Return all 7 days, filling defaults for missing ones
+    const fullWeek = Array.from({ length: 7 }, (_, dayOfWeek) => {
+      const existing = scheduleMap.get(dayOfWeek);
+      return {
+        staffId,
+        businessId: staffMember.business!.id,
+        dayOfWeek,
+        openTime: existing?.startTime ?? '09:00',
+        closeTime: existing?.endTime ?? '18:00',
+        isOpen: !!existing || false, // has an entry = is open
+      };
+    });
+
+    return { ok: true, data: { schedule: fullWeek } };
   }
 
   private resolveSlotDate(dateValue?: string) {

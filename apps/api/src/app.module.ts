@@ -11,6 +11,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
+import { StaffModule } from './modules/staff/staff.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { HealthController } from './health.controller';
     PortfolioModule,
     ReviewsModule,
     QueueModule,
+    StaffModule,
   ],
   controllers: [HealthController],
 })

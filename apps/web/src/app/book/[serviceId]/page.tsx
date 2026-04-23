@@ -187,7 +187,7 @@ export default function BookServicePage() {
                     <button onClick={() => { setSelectedStaff(null); setStep(3); }}
                       className={`card card-hover p-5 w-full text-left flex items-center gap-4 ${!selectedStaff ? "ring-2 ring-[var(--plum)]" : ""}`}>
                       <div className="w-12 h-12 rounded-full bg-[var(--paper-3)] flex items-center justify-center">
-                        <GlamrIcon name="users" size={18} className="text-[var(--ink-3)]" />
+                        <GlamrIcon name="user" size={18} className="text-[var(--ink-3)]" />
                       </div>
                       <div>
                         <p className="text-[15px] font-medium text-[var(--ink)]">Any available</p>

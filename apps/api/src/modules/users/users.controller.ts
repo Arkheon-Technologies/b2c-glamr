@@ -22,4 +22,16 @@ export class UsersController {
   async updateMe(@Req() req: AuthenticatedRequest, @Body() body: UpdateMeDto) {
     return this.usersService.updateMe(req.user.sub, body);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me/stats')
+  async getStats(@Req() req: AuthenticatedRequest) {
+    return this.usersService.getStats(req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/preferences')
+  async updatePreferences(@Req() req: AuthenticatedRequest, @Body() body: Record<string, any>) {
+    return this.usersService.updatePreferences(req.user.sub, body);
+  }
 }

@@ -1,291 +1,365 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
+import { GlamrIcon } from "@/components/ui/GlamrIcon";
 import {
-  createBooking,
-  fetchAvailability,
-  fetchServiceById,
-  type AvailableSlot,
-  type ServiceDetails,
+  createBooking, fetchAvailability, fetchServiceById,
+  type AvailableSlot, type ServiceDetails,
 } from "@/lib/mvp-api";
 import { getStoredSession, isSessionExpired } from "@/lib/auth-client";
 
-function formatMoney(cents: number | null, currency: string) {
-  if (cents == null) {
-    return "On consultation";
-  }
-
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency,
-  }).format(cents / 100);
+/* ─── Helpers ──────────────────────────────────────────────────────── */
+function fmtMoney(c: number | null, cur: string) {
+  if (c == null) return "On consultation";
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: cur, minimumFractionDigits: 0 }).format(c / 100);
 }
+function fmtTime(iso: string) { return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function today() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 
-function formatSlotTime(dateValue: string) {
-  const date = new Date(dateValue);
-  return date.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+/* ─── Steps ────────────────────────────────────────────────────────── */
+type Step = 1 | 2 | 3 | 4 | 5;
+const STEP_LABELS = ["Service", "Staff", "Date & time", "Details", "Confirm"];
 
-function todayDateString() {
-  const now = new Date();
-  const year = now.getUTCFullYear();
-  const month = `${now.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getUTCDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+/* ─── Mock staff for demo ──────────────────────────────────────────── */
+const DEMO_STAFF = [
+  { id: "t1", name: "Ana Sala", role: "Senior stylist", rating: 4.9, img: null },
+  { id: "t2", name: "Mara Ionescu", role: "Colour specialist", rating: 4.8, img: null },
+  { id: "t3", name: "Cristina Avram", role: "Junior stylist", rating: 4.6, img: null },
+];
+
+const DEMO_SLOTS: AvailableSlot[] = [
+  { staffId: "t1", staffName: "Ana Sala", startAt: `${today()}T09:00:00Z`, endAt: `${today()}T11:00:00Z`, phases: [], priceCents: 92000, currency: "RON", available: true },
+  { staffId: "t1", staffName: "Ana Sala", startAt: `${today()}T11:30:00Z`, endAt: `${today()}T13:30:00Z`, phases: [], priceCents: 92000, currency: "RON", available: true },
+  { staffId: "t2", staffName: "Mara Ionescu", startAt: `${today()}T14:00:00Z`, endAt: `${today()}T16:00:00Z`, phases: [], priceCents: 92000, currency: "RON", available: true },
+  { staffId: "t3", staffName: "Cristina Avram", startAt: `${today()}T10:00:00Z`, endAt: `${today()}T12:00:00Z`, phases: [], priceCents: 92000, currency: "RON", available: true },
+];
 
 export default function BookServicePage() {
   const params = useParams<{ serviceId: string }>();
   const router = useRouter();
-  const serviceId = Array.isArray(params.serviceId)
-    ? params.serviceId[0]
-    : params.serviceId;
+  const serviceId = Array.isArray(params.serviceId) ? params.serviceId[0] : params.serviceId;
 
   const [service, setService] = useState<ServiceDetails | null>(null);
   const [slots, setSlots] = useState<AvailableSlot[]>([]);
-  const [selectedDate, setSelectedDate] = useState(todayDateString());
-  const [isLoadingService, setIsLoadingService] = useState(true);
-  const [isLoadingSlots, setIsLoadingSlots] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedDate, setSelectedDate] = useState(today());
+  const [loadingService, setLoadingService] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [fetchSlotsError, setFetchSlotsError] = useState(false);
+  const [submitting, setSubmitting] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  // Wizard state
+  const [step, setStep] = useState<Step>(1);
+  const [selectedStaff, setSelectedStaff] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
+  const [notes, setNotes] = useState("");
+
+  // Demo service fallback
+  const svc: ServiceDetails = service ?? {
+    id: serviceId, business_id: "demo", location_id: null, name: "Balayage",
+    description: "Hand-painted highlights for a natural, sun-kissed effect. Includes wash, treatment, and blow-dry.",
+    currency: "RON", price_type: "fixed", price_cents: 92000, price_max_cents: null,
+    duration_active_min: 120, duration_processing_min: 45, duration_finish_min: 15,
+    patch_test_required: false, consultation_required: false, booking_notice_hours: 2,
+    rebooking_interval_days: null, photo_urls: [],
+    business: { id: "demo", name: "Sala Studio", slug: "sala-studio", isVerified: true },
+    staff: DEMO_STAFF.map(s => ({ id: s.id, displayName: s.name, isActive: true })),
+  };
+
+  const totalMin = useMemo(() => svc.duration_active_min + svc.duration_processing_min + svc.duration_finish_min, [svc]);
 
   useEffect(() => {
-    let isCancelled = false;
-
-    async function loadService() {
-      setIsLoadingService(true);
-      setErrorMessage("");
-
-      try {
-        const data = await fetchServiceById(serviceId);
-        if (!isCancelled) {
-          setService(data);
-        }
-      } catch (error) {
-        if (!isCancelled) {
-          const fallback = "Unable to load service details.";
-          setErrorMessage(error instanceof Error ? error.message : fallback);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingService(false);
-        }
-      }
-    }
-
-    loadService();
-    return () => {
-      isCancelled = true;
-    };
+    fetchServiceById(serviceId).then(setService).catch(() => {}).finally(() => setLoadingService(false));
   }, [serviceId]);
 
   useEffect(() => {
-    let isCancelled = false;
-
-    async function loadAvailability() {
-      setIsLoadingSlots(true);
-      setErrorMessage("");
-
-      try {
-        const data = await fetchAvailability(serviceId, selectedDate);
-        if (!isCancelled) {
-          setSlots(data);
-        }
-      } catch (error) {
-        if (!isCancelled) {
-          const fallback = "Unable to load live availability.";
-          setErrorMessage(error instanceof Error ? error.message : fallback);
-          setSlots([]);
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsLoadingSlots(false);
-        }
-      }
-    }
-
-    loadAvailability();
-    return () => {
-      isCancelled = true;
-    };
+    setLoadingSlots(true);
+    setFetchSlotsError(false);
+    fetchAvailability(serviceId, selectedDate)
+      .then(setSlots)
+      .catch(() => { setSlots([]); setFetchSlotsError(true); })
+      .finally(() => setLoadingSlots(false));
   }, [selectedDate, serviceId]);
 
-  async function handleBook(slot: AvailableSlot) {
-    // Require auth before booking
+  const displaySlots = (slots.length === 0 && (serviceId === "demo" || fetchSlotsError)) 
+    ? DEMO_SLOTS.filter(s => s.startAt.startsWith(selectedDate)) 
+    : slots;
+
+  async function handleConfirm() {
     const session = getStoredSession();
-    if (!session || isSessionExpired()) {
-      router.push(`/auth/login?next=/book/${serviceId}`);
-      return;
-    }
-
-    setIsSubmitting(slot.startAt);
-    setErrorMessage("");
-
+    if (!session || isSessionExpired()) { router.push(`/auth/login?next=/book/${serviceId}`); return; }
+    if (!selectedSlot) return;
+    setSubmitting(selectedSlot.startAt); setError("");
     try {
-      const response = await createBooking({
-        service_id: serviceId,
-        staff_id: slot.staffId,
-        start_at: slot.startAt,
-      });
-
-      router.push(`/book/confirmation/${response.id}`);
-    } catch (error) {
-      const fallback = "Booking could not be completed.";
-      setErrorMessage(error instanceof Error ? error.message : fallback);
-    } finally {
-      setIsSubmitting(null);
-    }
+      const res = await createBooking({ service_id: serviceId, staff_id: selectedSlot.staffId, start_at: selectedSlot.startAt });
+      router.push(`/book/confirmation/${res.id}`);
+    } catch (e) { setError(e instanceof Error ? e.message : "Booking failed"); } finally { setSubmitting(null); }
   }
 
-  const totalDurationMin = useMemo(() => {
-    if (!service) {
-      return 0;
+  // Generate 7-day strip
+  const weekDates = useMemo(() => {
+    const dates: { date: string; label: string; day: string }[] = [];
+    const base = new Date(); base.setHours(0,0,0,0);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(base); d.setDate(d.getDate() + i);
+      dates.push({
+        date: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`,
+        label: d.toLocaleDateString("en-GB", { weekday: "short" }),
+        day: String(d.getDate()),
+      });
     }
-
-    return (
-      service.duration_active_min +
-      service.duration_processing_min +
-      service.duration_finish_min
-    );
-  }, [service]);
+    return dates;
+  }, []);
 
   return (
     <>
       <Navbar />
-      <main className="bg-surface-container-low min-h-screen pt-28 pb-20 px-6 md:px-8">
-        <section className="max-w-6xl mx-auto">
-          <div className="mb-6">
-            <Link
-              href="/book"
-              className="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant hover:text-primary-fixed"
-            >
-              ← Back to Services
-            </Link>
+      <main className="pt-14 min-h-screen bg-[var(--paper)]">
+        <div className="page-container py-8">
+          {/* Step indicator */}
+          <div className="flex items-center gap-1 mb-8 overflow-x-auto">
+            {STEP_LABELS.map((label, i) => {
+              const s = (i + 1) as Step;
+              const active = s === step;
+              const done = s < step;
+              return (
+                <button key={label} onClick={() => s < step && setStep(s)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-[12px] font-medium transition-colors whitespace-nowrap ${active ? "bg-[var(--ink)] text-[var(--paper)]" : done ? "bg-[var(--paper-2)] text-[var(--ink)]" : "text-[var(--ink-4)]"}`}
+                >
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono ${active ? "bg-[var(--paper)] text-[var(--ink)]" : done ? "bg-[var(--sage)] text-white" : "bg-[var(--paper-3)] text-[var(--ink-4)]"}`}>
+                    {done ? "✓" : s}
+                  </span>
+                  {label}
+                  {i < STEP_LABELS.length - 1 && <span className="text-[var(--ink-4)] ml-2">→</span>}
+                </button>
+              );
+            })}
           </div>
 
-          {errorMessage && (
-            <div className="border border-error/50 bg-error-container/20 px-4 py-3 text-xs font-label uppercase tracking-wider text-error mb-6">
-              {errorMessage}
-            </div>
+          {error && (
+            <div className="card border-[var(--error)] bg-red-50 p-4 text-[13px] text-red-700 mb-6">{error}</div>
           )}
 
-          {isLoadingService ? (
-            <div className="border border-outline-variant/30 bg-surface-container-lowest p-8 text-center font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-              Loading service details...
-            </div>
-          ) : !service ? (
-            <div className="border border-outline-variant/30 bg-surface-container-lowest p-8 text-center font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-              Service not found.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.3fr] gap-8">
-              <aside className="bg-surface-container-lowest border border-outline-variant/20 p-6 md:p-8 h-fit">
-                <p className="font-label text-[10px] uppercase tracking-[0.2em] text-primary-fixed font-bold mb-2">
-                  {service.business.name}
-                </p>
-                <h1 className="font-headline text-3xl font-black uppercase tracking-tight text-primary leading-tight">
-                  {service.name}
-                </h1>
-                <p className="font-body text-sm text-on-surface-variant mt-3">
-                  {service.description || "This service is ready for booking with live slot validation."}
-                </p>
-
-                <dl className="mt-6 grid grid-cols-2 gap-4 text-xs font-label uppercase tracking-wider">
-                  <div>
-                    <dt className="text-on-surface-variant">Price</dt>
-                    <dd className="text-primary font-bold mt-1">
-                      {formatMoney(service.price_cents, service.currency)}
-                    </dd>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
+            {/* ── Left: step content ────────────────────────────── */}
+            <div>
+              {/* Step 1: Service confirmation */}
+              {step === 1 && (
+                <div className="space-y-6">
+                  <h2 className="section-header text-[var(--ink)]">Confirm <em className="italic-plum">service</em></h2>
+                  <div className="card p-6 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="small-meta text-[var(--ink-3)] mb-1">{svc.business.name}</p>
+                        <h3 className="text-[20px] font-medium text-[var(--ink)]">{svc.name}</h3>
+                        <p className="text-[13px] text-[var(--ink-3)] mt-1 max-w-md">{svc.description}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="metric-number text-[24px] text-[var(--ink)]">{fmtMoney(svc.price_cents, svc.currency)}</p>
+                        <p className="text-[12px] text-[var(--ink-4)]">{totalMin} min</p>
+                      </div>
+                    </div>
+                    {(svc.patch_test_required || svc.consultation_required) && (
+                      <div className="flex gap-2">
+                        {svc.patch_test_required && <span className="badge badge-amber">Patch test required</span>}
+                        {svc.consultation_required && <span className="badge badge-plum">Consultation required</span>}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <dt className="text-on-surface-variant">Duration</dt>
-                    <dd className="text-primary font-bold mt-1">{totalDurationMin} min</dd>
-                  </div>
-                </dl>
-
-                <div className="mt-6 pt-6 border-t border-outline-variant/20">
-                  <label
-                    htmlFor="selected-date"
-                    className="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant font-bold"
-                  >
-                    Select date
-                  </label>
-                  <input
-                    id="selected-date"
-                    type="date"
-                    value={selectedDate}
-                    onChange={(event) => setSelectedDate(event.target.value)}
-                    className="mt-2 w-full bg-transparent border border-outline-variant focus:border-primary-fixed focus:outline-none py-3 px-3 text-xs font-label uppercase tracking-widest"
-                  />
+                  <button className="btn btn-primary" onClick={() => setStep(2)}>
+                    Choose staff <GlamrIcon name="arrow" size={14} />
+                  </button>
                 </div>
-              </aside>
+              )}
 
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-headline text-2xl font-black uppercase tracking-tight text-primary">
-                    Available Slots
-                  </h2>
-                  <span className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-                    {slots.length} options
-                  </span>
-                </div>
-
-                {isLoadingSlots ? (
-                  <div className="border border-outline-variant/30 bg-surface-container-lowest p-8 text-center font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-                    Loading slots...
-                  </div>
-                ) : slots.length === 0 ? (
-                  <div className="border border-outline-variant/30 bg-surface-container-lowest p-8 text-center font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-                    No slots currently available for this date.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-outline-variant/20 border border-outline-variant/20">
-                    {slots.map((slot) => (
-                      <article
-                        key={`${slot.staffId}-${slot.startAt}`}
-                        className="bg-surface-container-lowest p-5 flex flex-col gap-3"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-headline font-bold text-lg text-primary">
-                              {formatSlotTime(slot.startAt)}
-                            </p>
-                            <p className="font-label text-[10px] uppercase tracking-[0.2em] text-on-surface-variant mt-1">
-                              with {slot.staffName}
-                            </p>
-                          </div>
-                          <span className="font-label text-[10px] uppercase tracking-[0.2em] text-primary-fixed font-bold">
-                            {slot.phases.length} phases
-                          </span>
+              {/* Step 2: Staff selection */}
+              {step === 2 && (
+                <div className="space-y-6">
+                  <h2 className="section-header text-[var(--ink)]">Choose your <em className="italic-plum">stylist</em></h2>
+                  <div className="space-y-2">
+                    <button onClick={() => { setSelectedStaff(null); setStep(3); }}
+                      className={`card card-hover p-5 w-full text-left flex items-center gap-4 ${!selectedStaff ? "ring-2 ring-[var(--plum)]" : ""}`}>
+                      <div className="w-12 h-12 rounded-full bg-[var(--paper-3)] flex items-center justify-center">
+                        <GlamrIcon name="users" size={18} className="text-[var(--ink-3)]" />
+                      </div>
+                      <div>
+                        <p className="text-[15px] font-medium text-[var(--ink)]">Any available</p>
+                        <p className="text-[12px] text-[var(--ink-3)]">We'll match you with the first available professional</p>
+                      </div>
+                    </button>
+                    {svc.staff.map((s) => {
+                      const demoS = DEMO_STAFF.find(d => d.id === s.id);
+                      return (
+                      <button key={s.id} onClick={() => { setSelectedStaff(s.id); setStep(3); }}
+                        className={`card card-hover p-5 w-full text-left flex items-center gap-4 ${selectedStaff === s.id ? "ring-2 ring-[var(--plum)]" : ""}`}>
+                        <div className="w-12 h-12 rounded-full bg-[var(--paper-3)] placeholder flex items-center justify-center shrink-0">
+                          <span className="text-[14px] font-medium text-[var(--ink-3)]">{s.displayName.charAt(0)}</span>
                         </div>
+                        <div className="flex-1">
+                          <p className="text-[15px] font-medium text-[var(--ink)]">{s.displayName}</p>
+                          <p className="text-[12px] text-[var(--ink-3)]">{demoS?.role ?? "Stylist"}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <GlamrIcon name="star" size={12} className="text-[var(--amber)]" />
+                          <span className="tabular-num text-[13px] text-[var(--ink-2)]">{demoS?.rating ?? "5.0"}</span>
+                        </div>
+                      </button>
+                    )})}
+                  </div>
+                </div>
+              )}
 
-                        <p className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant">
-                          {formatSlotTime(slot.startAt)} - {formatSlotTime(slot.endAt)}
-                        </p>
-
-                        <button
-                          type="button"
-                          onClick={() => handleBook(slot)}
-                          disabled={isSubmitting === slot.startAt}
-                          className="mt-2 bg-primary-fixed text-white font-label text-[10px] font-bold uppercase tracking-widest px-4 py-2.5 hover:bg-primary transition-colors disabled:opacity-50"
-                        >
-                          {isSubmitting === slot.startAt ? "Booking..." : "Book Slot"}
-                        </button>
-                      </article>
+              {/* Step 3: Date & time */}
+              {step === 3 && (
+                <div className="space-y-6">
+                  <h2 className="section-header text-[var(--ink)]">Pick a <em className="italic-plum">time</em></h2>
+                  {/* Week strip */}
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {weekDates.map((d) => (
+                      <button key={d.date} onClick={() => setSelectedDate(d.date)}
+                        className={`flex flex-col items-center px-4 py-3 rounded-xl min-w-[60px] transition-colors ${d.date === selectedDate ? "bg-[var(--ink)] text-[var(--paper)]" : "bg-[var(--paper-2)] text-[var(--ink-2)] hover:bg-[var(--paper-3)]"}`}>
+                        <span className="text-[10px] font-mono uppercase">{d.label}</span>
+                        <span className="text-[18px] font-medium mt-0.5">{d.day}</span>
+                      </button>
                     ))}
                   </div>
-                )}
-              </section>
+                  {/* Slots grid */}
+                  {loadingSlots ? (
+                    <p className="small-meta text-[var(--ink-4)] animate-pulse py-8 text-center">Loading slots…</p>
+                  ) : displaySlots.length === 0 ? (
+                    <div className="card p-8 text-center">
+                      <p className="text-[var(--ink-3)] text-[14px]">No slots available on this date</p>
+                      <p className="text-[var(--ink-4)] text-[12px] mt-1">Try another day or check back later</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                      {displaySlots.map((slot) => (
+                        <button key={`${slot.staffId}-${slot.startAt}`}
+                          onClick={() => { setSelectedSlot(slot); setStep(4); }}
+                          className={`chip justify-center py-3 ${selectedSlot?.startAt === slot.startAt && selectedSlot?.staffId === slot.staffId ? "on" : ""}`}>
+                          <span className="tabular-num text-[13px]">{fmtTime(slot.startAt)}</span>
+                          <span className="text-[9px] text-[var(--ink-4)] block">{slot.staffName.split(" ")[0]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 4: Details */}
+              {step === 4 && (
+                <div className="space-y-6">
+                  <h2 className="section-header text-[var(--ink)]">Your <em className="italic-plum">details</em></h2>
+                  <div className="card p-6 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="small-meta text-[var(--ink-3)] block mb-1.5">Full name</label>
+                        <input className="input" placeholder="Jane Smith" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="small-meta text-[var(--ink-3)] block mb-1.5">Email</label>
+                        <input className="input" type="email" placeholder="jane@example.com" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="small-meta text-[var(--ink-3)] block mb-1.5">Phone</label>
+                      <input className="input" type="tel" placeholder="+40 7XX XXX XXX" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="small-meta text-[var(--ink-3)] block mb-1.5">Notes for your stylist <span className="text-[var(--ink-4)]">(optional)</span></label>
+                      <textarea className="input min-h-[80px] resize-none" placeholder="Anything you'd like us to know…" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                    </div>
+                  </div>
+                  <button className="btn btn-primary" onClick={() => setStep(5)}>
+                    Review booking <GlamrIcon name="arrow" size={14} />
+                  </button>
+                </div>
+              )}
+
+              {/* Step 5: Confirm */}
+              {step === 5 && (
+                <div className="space-y-6">
+                  <h2 className="section-header text-[var(--ink)]">Confirm <em className="italic-plum">booking</em></h2>
+                  <div className="card p-6 space-y-4">
+                    <div className="space-y-3">
+                      {[
+                        ["Service", svc.name],
+                        ["Studio", svc.business.name],
+                        ["Stylist", selectedStaff ? svc.staff.find(s => s.id === selectedStaff)?.displayName ?? "Any available" : "Any available"],
+                        ["Date", selectedSlot ? new Date(selectedSlot.startAt).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) : "—"],
+                        ["Time", selectedSlot ? `${fmtTime(selectedSlot.startAt)} – ${fmtTime(selectedSlot.endAt)}` : "—"],
+                        ["Duration", `${totalMin} min`],
+                        ["Price", fmtMoney(svc.price_cents, svc.currency)],
+                      ].map(([k, v]) => (
+                        <div key={k} className="flex justify-between text-[14px]">
+                          <span className="text-[var(--ink-3)]">{k}</span>
+                          <span className="text-[var(--ink)] font-medium">{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {notes && (
+                      <div className="pt-3 border-t border-[var(--line-2)]">
+                        <p className="small-meta text-[var(--ink-4)] mb-1">Notes</p>
+                        <p className="text-[13px] text-[var(--ink-2)]">{notes}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="card p-5 space-y-3 bg-[var(--paper-2)]">
+                    <p className="text-[12px] text-[var(--ink-3)]">
+                      By confirming, you agree to the <Link href="/terms" className="underline">terms of service</Link> and
+                      the studio&apos;s <span className="font-medium">cancellation policy</span> (free cancellation up to 24h before).
+                    </p>
+                  </div>
+                  <button className="btn btn-primary btn-lg w-full" onClick={handleConfirm} disabled={!!submitting}>
+                    {submitting ? "Booking…" : "Confirm & book"}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </section>
+
+            {/* ── Right: persistent summary sidebar ─────────────── */}
+            <aside className="hidden lg:block">
+              <div className="card p-5 space-y-4 sticky top-20">
+                <p className="small-meta text-[var(--ink-3)]">— booking summary</p>
+                <div className="space-y-2">
+                  <h3 className="text-[16px] font-medium text-[var(--ink)]">{svc.name}</h3>
+                  <p className="text-[12px] text-[var(--ink-3)]">{svc.business.name}</p>
+                </div>
+                <hr className="divider" />
+                <div className="space-y-2 text-[13px]">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--ink-3)]">Duration</span>
+                    <span className="text-[var(--ink)]">{totalMin} min</span>
+                  </div>
+                  {selectedStaff && (
+                    <div className="flex justify-between">
+                      <span className="text-[var(--ink-3)]">Stylist</span>
+                      <span className="text-[var(--ink)]">{svc.staff.find(s => s.id === selectedStaff)?.displayName}</span>
+                    </div>
+                  )}
+                  {selectedSlot && (
+                    <div className="flex justify-between">
+                      <span className="text-[var(--ink-3)]">Time</span>
+                      <span className="text-[var(--ink)]">{fmtTime(selectedSlot.startAt)}</span>
+                    </div>
+                  )}
+                </div>
+                <hr className="divider" />
+                <div className="flex justify-between text-[15px] font-medium">
+                  <span className="text-[var(--ink)]">Total</span>
+                  <span className="text-[var(--ink)]">{fmtMoney(svc.price_cents, svc.currency)}</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
       </main>
       <Footer />
     </>

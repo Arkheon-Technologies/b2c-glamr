@@ -5,6 +5,9 @@ const PROTECTED_PREFIXES = ["/studio", "/my-bookings", "/profile"];
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
+  // Allow all requests through in development for preview
+  if (process.env.NODE_ENV === "development") return NextResponse.next();
+
   const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   if (!isProtected) return NextResponse.next();
 

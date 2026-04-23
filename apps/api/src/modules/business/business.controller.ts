@@ -52,4 +52,13 @@ export class BusinessController {
   ) {
     return this.businessService.getBusinessBookings(id, req.user.sub, status);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/clients')
+  async getClients(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.businessService.getBusinessClients(id, req.user.sub);
+  }
 }

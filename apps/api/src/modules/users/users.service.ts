@@ -74,4 +74,51 @@ export class UsersService {
       },
     };
   }
+
+  async getStats(userId: string) {
+    const stats = await this.prisma.customerBusinessStat.findMany({
+      where: { customerId: userId },
+      include: {
+        business: {
+          select: { name: true, slug: true }
+        }
+      }
+    });
+
+    const profile = await this.prisma.customerProfile.findUnique({
+      where: { userId }
+    });
+
+    return {
+      ok: true,
+      data: {
+        total_bookings: profile?.totalBookings ?? 0,
+        businesses: stats.map(s => ({
+          business_id: s.businessId,
+          business_name: s.business.name,
+          slug: s.business.slug,
+          booking_count: s.bookingCount,
+          total_spent_cents: s.totalSpentCents,
+          loyalty_tier: s.loyaltyTier,
+          is_vip: s.isVip,
+          no_show_count: s.noShowCount
+        }))
+      }
+    };
+  }
+
+  async updatePreferences(userId: string, preferences: Record<string, any>) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { notificationPreferences: preferences },
+      select: { notificationPreferences: true }
+    });
+
+    return {
+      ok: true,
+      data: {
+        preferences: user.notificationPreferences
+      }
+    };
+  }
 }

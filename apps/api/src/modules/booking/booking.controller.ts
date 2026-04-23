@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { BookingService } from './booking.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
@@ -42,5 +42,31 @@ export class BookingController {
     @Body() body: CancelBookingDto,
   ) {
     return this.bookingService.cancelBookingAsCustomer(id, req.user.sub, body.reason);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/reschedule')
+  async reschedule(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { start_at: string },
+  ) {
+    return this.bookingService.rescheduleBookingAsCustomer(id, req.user.sub, body.start_at);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/receipt')
+  async receipt(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    return this.bookingService.getReceipt(id, req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/status')
+  async updateStatus(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { status: string },
+  ) {
+    return this.bookingService.updateStatusAsBusiness(id, req.user.sub, body.status);
   }
 }

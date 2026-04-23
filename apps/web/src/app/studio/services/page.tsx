@@ -1,336 +1,117 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useStudio } from "@/lib/studio-context";
-import {
-  fetchServices,
-  createService,
-  updateService,
-  deleteService,
-  type ServiceListItem,
-} from "@/lib/mvp-api";
+import { useState } from "react";
+import { GlamrIcon } from "@/components/ui/GlamrIcon";
 
-function formatPrice(priceCents: number | null, currency: string) {
-  if (priceCents == null) return "Price on request";
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: currency || "GBP",
-    minimumFractionDigits: 0,
-  }).format(priceCents / 100);
-}
-
-function formatDuration(activeMin: number, processingMin: number, finishMin: number) {
-  const total = activeMin + processingMin + finishMin;
-  if (total < 60) return `${total}min`;
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return m > 0 ? `${h}h ${m}min` : `${h}h`;
-}
-
-const defaultForm = {
-  name: "",
-  description: "",
-  durationActiveMin: 30,
-  durationProcessingMin: 0,
-  durationFinishMin: 0,
-  priceCents: 0,
-  currency: "GBP",
+type Service = {
+  id: string; name: string; category: string; price: number; duration: number;
+  active: boolean; popular?: boolean;
 };
 
+const DEMO_SERVICES: Service[] = [
+  { id: "1", name: "Balayage", category: "Colour", price: 920, duration: 180, active: true, popular: true },
+  { id: "2", name: "Root touch-up", category: "Colour", price: 350, duration: 120, active: true },
+  { id: "3", name: "Full highlights", category: "Colour", price: 480, duration: 150, active: true },
+  { id: "4", name: "Colour correction", category: "Colour", price: 1200, duration: 240, active: true },
+  { id: "5", name: "Cut & style", category: "Cut", price: 180, duration: 60, active: true, popular: true },
+  { id: "6", name: "Cut & blow-dry", category: "Cut", price: 200, duration: 75, active: true },
+  { id: "7", name: "Trim", category: "Cut", price: 80, duration: 30, active: true },
+  { id: "8", name: "Kids cut", category: "Cut", price: 60, duration: 30, active: false },
+  { id: "9", name: "Keratin treatment", category: "Treatment", price: 650, duration: 120, active: true },
+  { id: "10", name: "Deep conditioning", category: "Treatment", price: 120, duration: 45, active: true },
+  { id: "11", name: "Blow-dry", category: "Styling", price: 80, duration: 45, active: true },
+  { id: "12", name: "Updo / bridal", category: "Styling", price: 350, duration: 90, active: true },
+  { id: "13", name: "Consultation", category: "Other", price: 0, duration: 30, active: true },
+];
+
+const CATEGORIES = [...new Set(DEMO_SERVICES.map((s) => s.category))];
+
 export default function ServicesPage() {
-  const router = useRouter();
-  const { businessId, business, loading: ctxLoading } = useStudio();
+  const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
 
-  const [services, setServices] = useState<ServiceListItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(defaultForm);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const filtered = DEMO_SERVICES.filter((s) => {
+    if (search && !s.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (activeFilter === "active" && !s.active) return false;
+    if (activeFilter === "inactive" && s.active) return false;
+    return true;
+  });
 
-  useEffect(() => {
-    if (!ctxLoading && !businessId) {
-      router.replace("/studio/onboarding");
-      return;
-    }
-
-    if (businessId) {
-      loadServices();
-    }
-  }, [businessId, ctxLoading]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function loadServices() {
-    setLoading(true);
-    try {
-      const all = await fetchServices();
-      setServices(all.filter((s) => s.business_id === businessId));
-    } catch {
-      setServices([]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function openCreate() {
-    setForm(defaultForm);
-    setEditingId(null);
-    setError(null);
-    setShowForm(true);
-  }
-
-  function openEdit(s: ServiceListItem) {
-    setForm({
-      name: s.name,
-      description: s.description ?? "",
-      durationActiveMin: s.duration_active_min,
-      durationProcessingMin: s.duration_processing_min,
-      durationFinishMin: s.duration_finish_min,
-      priceCents: s.price_cents ?? 0,
-      currency: s.currency ?? "GBP",
-    });
-    setEditingId(s.id);
-    setError(null);
-    setShowForm(true);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSaving(true);
-
-    try {
-      if (editingId) {
-        await updateService(editingId, {
-          name: form.name,
-          description: form.description || undefined,
-          durationActiveMin: form.durationActiveMin,
-          priceCents: form.priceCents,
-        });
-      } else {
-        await createService({
-          businessId: businessId!,
-          name: form.name,
-          description: form.description || undefined,
-          durationActiveMin: form.durationActiveMin,
-          durationProcessingMin: form.durationProcessingMin,
-          durationFinishMin: form.durationFinishMin,
-          priceCents: form.priceCents,
-          currency: form.currency,
-        });
-      }
-      setShowForm(false);
-      await loadServices();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save service");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Archive this service? It will no longer appear in bookings.")) return;
-    try {
-      await deleteService(id);
-      await loadServices();
-    } catch {
-      alert("Failed to delete service");
-    }
-  }
-
-  const inputClass =
-    "w-full bg-transparent border border-outline-variant/60 px-4 py-3 font-body text-sm text-primary placeholder:text-primary/30 focus:outline-none focus:border-primary-fixed transition-colors";
-  const labelClass = "block font-label text-[9px] uppercase tracking-widest text-primary/50 mb-1.5";
-
-  if (ctxLoading) return null;
+  const grouped = CATEGORIES.map((cat) => ({
+    category: cat,
+    services: filtered.filter((s) => s.category === cat),
+  })).filter((g) => g.services.length > 0);
 
   return (
-    <div className="max-w-3xl">
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <p className="font-label text-[9px] uppercase tracking-widest text-primary/40 mb-1">
-            {business?.name}
-          </p>
-          <h1 className="font-headline font-black text-3xl tracking-tight text-primary">Services</h1>
-        </div>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="bg-primary-fixed text-white font-headline font-bold uppercase tracking-widest text-xs px-6 py-3 hover:bg-primary transition-colors"
-        >
-          + Add Service
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h1 className="text-[22px] font-display text-[var(--ink)]">Services & pricing</h1>
+        <button className="btn btn-primary btn-sm">
+          <GlamrIcon name="plus" size={13} /> Add service
         </button>
       </div>
 
-      {/* Form modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-surface-container-lowest border border-outline-variant/30 w-full max-w-md p-8">
-            <h2 className="font-headline font-black text-xl tracking-tight text-primary mb-6">
-              {editingId ? "Edit Service" : "New Service"}
-            </h2>
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label className={labelClass}>Name</label>
-                <input
-                  type="text"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className={labelClass}>Description</label>
-                <textarea
-                  rows={2}
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  className={inputClass}
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className={labelClass}>Active (min)</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    value={form.durationActiveMin}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, durationActiveMin: Number(e.target.value) }))
-                    }
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Processing (min)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.durationProcessingMin}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, durationProcessingMin: Number(e.target.value) }))
-                    }
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Finish (min)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.durationFinishMin}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, durationFinishMin: Number(e.target.value) }))
-                    }
-                    className={inputClass}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>Price (pence/cents)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.priceCents}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, priceCents: Number(e.target.value) }))
-                    }
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Currency</label>
-                  <select
-                    value={form.currency}
-                    onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
-                    className={inputClass}
-                  >
-                    <option value="GBP">GBP</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                  </select>
-                </div>
-              </div>
-
-              {error && (
-                <p className="font-label text-[10px] uppercase tracking-widest text-error">{error}</p>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="flex-1 border border-outline-variant/60 text-primary font-headline font-bold uppercase tracking-widest text-xs py-3 hover:border-primary transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-primary-fixed text-white font-headline font-bold uppercase tracking-widest text-xs py-3 hover:bg-primary transition-colors disabled:opacity-40"
-                >
-                  {saving ? "Saving…" : editingId ? "Save Changes" : "Create Service"}
-                </button>
-              </div>
-            </form>
-          </div>
+      {/* Toolbar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <GlamrIcon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-4)]" />
+          <input className="input pl-9 text-[13px]" placeholder="Search services…"
+            value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-      )}
-
-      {/* Services list */}
-      {loading ? (
-        <p className="font-label text-[10px] uppercase tracking-widest text-primary/30 animate-pulse">
-          Loading services…
-        </p>
-      ) : services.length === 0 ? (
-        <div className="border border-outline-variant/30 p-12 text-center">
-          <p className="font-label text-[10px] uppercase tracking-widest text-primary/30">
-            No services yet. Add your first service.
-          </p>
-        </div>
-      ) : (
-        <div className="divide-y divide-outline-variant/20 border border-outline-variant/30">
-          {services.map((s) => (
-            <div
-              key={s.id}
-              className="flex items-center justify-between px-5 py-5 bg-surface-container-lowest hover:bg-surface-container transition-colors"
-            >
-              <div>
-                <p className="font-body text-sm font-medium text-primary">{s.name}</p>
-                <p className="font-label text-[10px] uppercase tracking-widest text-primary/40 mt-0.5">
-                  {formatDuration(s.duration_active_min, s.duration_processing_min, s.duration_finish_min)}
-                  {" · "}
-                  {formatPrice(s.price_cents, s.currency)}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEdit(s)}
-                  className="font-label text-[9px] uppercase tracking-widest text-primary/50 hover:text-primary border border-outline-variant/30 hover:border-primary/40 px-3 py-1.5 transition-colors"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(s.id)}
-                  className="font-label text-[9px] uppercase tracking-widest text-error/60 hover:text-error border border-error/20 hover:border-error/40 px-3 py-1.5 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
+        <div className="flex gap-1 bg-[var(--paper-2)] rounded-lg p-0.5">
+          {(["all", "active", "inactive"] as const).map((f) => (
+            <button key={f} onClick={() => setActiveFilter(f)}
+              className={`px-3 py-1.5 text-[12px] rounded-md transition-colors capitalize ${activeFilter === f ? "bg-[var(--card)] text-[var(--ink)] shadow-sm" : "text-[var(--ink-3)]"}`}>
+              {f}
+            </button>
           ))}
         </div>
-      )}
+        <span className="text-[12px] text-[var(--ink-4)] tabular-num">{filtered.length} services</span>
+      </div>
+
+      {/* Service groups */}
+      {grouped.map((g) => (
+        <div key={g.category}>
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-[14px] font-medium text-[var(--ink)]">{g.category}</h2>
+            <span className="text-[11px] text-[var(--ink-4)]">{g.services.length}</span>
+          </div>
+          <div className="card overflow-hidden divide-y divide-[var(--line-2)]">
+            {g.services.map((svc) => (
+              <div key={svc.id} className="flex items-center gap-4 p-4 hover:bg-[var(--paper-2)] transition-colors cursor-pointer group">
+                {/* Toggle */}
+                <button className={`w-9 h-5 rounded-full flex items-center px-0.5 transition-colors ${svc.active ? "bg-[var(--sage)]" : "bg-[var(--paper-3)]"}`}>
+                  <span className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${svc.active ? "translate-x-4" : "translate-x-0"}`} />
+                </button>
+
+                {/* Name */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[14px] ${svc.active ? "text-[var(--ink)]" : "text-[var(--ink-4)]"}`}>{svc.name}</span>
+                    {svc.popular && <span className="badge badge-plum text-[8px]">Popular</span>}
+                  </div>
+                </div>
+
+                {/* Duration */}
+                <div className="flex items-center gap-1 text-[12px] text-[var(--ink-3)]">
+                  <GlamrIcon name="clock" size={12} />
+                  <span className="tabular-num">{svc.duration} min</span>
+                </div>
+
+                {/* Price */}
+                <span className="tabular-num text-[14px] font-medium text-[var(--ink)] min-w-[80px] text-right">
+                  {svc.price === 0 ? "Free" : `${svc.price} lei`}
+                </span>
+
+                {/* Edit */}
+                <button className="w-7 h-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[var(--paper-3)] transition-all">
+                  <GlamrIcon name="settings" size={13} className="text-[var(--ink-3)]" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

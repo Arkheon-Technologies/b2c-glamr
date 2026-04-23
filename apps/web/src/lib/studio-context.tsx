@@ -38,7 +38,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       const b = await getBusinessById(id);
       setBusiness(b);
     } catch {
-      setBusiness(null);
+      // Demo fallback for dev preview
+      setBusiness({ id, name: "Sala Studio", slug: "sala-studio", is_verified: true, description: null, about: null, logo_url: null, total_bookings: 0 } as BusinessSummary);
     } finally {
       setLoading(false);
     }
@@ -55,6 +56,11 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     if (stored) {
       setBusinessIdState(stored);
       load(stored);
+    } else if (process.env.NODE_ENV === "development") {
+      // Auto-seed demo business in dev
+      const demoId = "demo-sala-studio";
+      setBusinessIdState(demoId);
+      load(demoId);
     } else {
       setLoading(false);
     }

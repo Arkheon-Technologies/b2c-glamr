@@ -581,11 +581,88 @@ export async function cancelBookingById(id: string, reason?: string) {
   return data.booking;
 }
 
+export async function updateBookingStatus(id: string, status: string) {
+  const data = await request<{ booking: BookingSummary }>(`/bookings/${id}/status`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify({ status }),
+  });
+  return data.booking;
+}
+
 // ─── Business public profile ──────────────────────────────────────────────────
 
 export async function fetchBusinessProfile(slug: string) {
   const data = await request<{ business: BusinessProfile }>(`/businesses/${slug}/profile`);
   return data.business;
+}
+
+// ─── Business reviews ─────────────────────────────────────────────────────────
+
+export interface ReviewItem {
+  id: string;
+  rating_overall: number;
+  rating_skill: number | null;
+  rating_clean: number | null;
+  rating_value: number | null;
+  text: string | null;
+  photo_urls: string[];
+  is_verified: boolean;
+  business_response: string | null;
+  business_response_at: string | null;
+  created_at: string;
+  customer_name: string;
+  customer_avatar: string | null;
+  technician_name: string;
+  service_name: string | null;
+}
+
+export interface ReviewsSummary {
+  total_reviews: number;
+  avg_overall: number;
+  avg_skill: number;
+  avg_clean: number;
+  avg_value: number;
+}
+
+export async function fetchBusinessReviews(slug: string, limit = 20, offset = 0) {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const data = await request<{ reviews: ReviewItem[]; summary: ReviewsSummary }>(
+    `/reviews/business/${slug}?${params.toString()}`
+  );
+  return data;
+}
+
+// ─── Discover businesses ──────────────────────────────────────────────────────
+
+export interface DiscoverBusiness {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  verticals: string[];
+  plan_tier: string;
+  is_verified: boolean;
+  total_bookings: number;
+  logo_url: string | null;
+  cover_image_url: string | null;
+  location: { city: string; neighborhood: string | null; countryCode: string } | null;
+  services_count: number;
+  staff_count: number;
+}
+
+export async function discoverBusinesses(params?: {
+  query?: string;
+  vertical?: string;
+  limit?: number;
+}) {
+  const q = new URLSearchParams();
+  if (params?.query?.trim()) q.set('query', params.query.trim());
+  if (params?.vertical?.trim()) q.set('vertical', params.vertical.trim());
+  if (params?.limit) q.set('limit', String(params.limit));
+  const path = q.size ? `/businesses/discover?${q.toString()}` : '/businesses/discover';
+  const data = await request<{ businesses: DiscoverBusiness[] }>(path);
+  return data.businesses;
 }
 
 // ─── Business management (studio) ────────────────────────────────────────────
@@ -638,6 +715,23 @@ export async function getBusinessBookings(businessId: string, status?: string) {
     headers: authHeaders(),
   });
   return data.bookings;
+}
+
+export interface ClientSummary {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  visits: number;
+  last_visit: string;
+  lifetime_cents: number;
+}
+
+export async function getBusinessClients(businessId: string) {
+  const data = await request<{ clients: ClientSummary[] }>(`/businesses/${businessId}/clients`, {
+    headers: authHeaders(),
+  });
+  return data.clients;
 }
 
 // ─── Services management (studio) ────────────────────────────────────────────

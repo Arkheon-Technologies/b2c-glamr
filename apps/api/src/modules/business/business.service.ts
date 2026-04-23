@@ -267,6 +267,49 @@ export class BusinessService {
     };
   }
 
+  async getBusinessClients(businessId: string, ownerId: string) {
+    const existing = await this.prisma.business.findUnique({ where: { id: businessId }, select: { ownerId: true } });
+    if (!existing) throw notFound();
+    if (existing.ownerId !== ownerId) throw forbidden();
+
+    const appointments = await this.prisma.appointment.findMany({
+      where: { businessId, customerId: { not: null }, status: { in: ['completed', 'confirmed', 'pending_approval'] } },
+      select: {
+        customerId: true,
+        startAt: true,
+        customer: { select: { fullName: true, email: true, phone: true } },
+        service: { select: { priceCents: true } }
+      },
+      orderBy: { startAt: 'desc' }
+    });
+
+    const clientMap = new Map<string, any>();
+    for (const appt of appointments) {
+      if (!appt.customerId || !appt.customer) continue;
+      if (!clientMap.has(appt.customerId)) {
+        clientMap.set(appt.customerId, {
+          id: appt.customerId,
+          name: appt.customer.fullName,
+          email: appt.customer.email,
+          phone: appt.customer.phone,
+          last_visit: appt.startAt.toISOString(),
+          visits: 0,
+          lifetime_cents: 0
+        });
+      }
+      const client = clientMap.get(appt.customerId);
+      client.visits += 1;
+      client.lifetime_cents += appt.service?.priceCents || 0;
+    }
+
+    return {
+      ok: true,
+      data: {
+        clients: Array.from(clientMap.values())
+      }
+    };
+  }
+
   async getPublicProfile(slug: string) {
     const business = await this.prisma.business.findUnique({
       where: { slug },

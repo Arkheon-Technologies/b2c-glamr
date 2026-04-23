@@ -466,6 +466,129 @@ export class BookingService {
     return this.cancelBooking(id, reason);
   }
 
+  async rescheduleBookingAsCustomer(id: string, userId: string, newStartAtStr: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id },
+      select: { id: true, customerId: true, serviceId: true, staffId: true, status: true },
+    });
+
+    if (!appointment) throw new NotFoundException({ ok: false, error: { code: 'BOOKING_NOT_FOUND', message: 'Booking not found', request_id: randomUUID() } });
+    if (appointment.customerId !== userId) throw new ForbiddenException({ ok: false, error: { code: 'BOOKING_ACCESS_DENIED', message: 'Access denied', request_id: randomUUID() } });
+
+    const service = await this.prisma.service.findUnique({
+      where: { id: appointment.serviceId }
+    });
+
+    if (!service) throw new BadRequestException({ ok: false, error: { code: 'SERVICE_NOT_FOUND', message: 'Service not found', request_id: randomUUID() } });
+
+    const startAt = new Date(newStartAtStr);
+    const totalDurationMin = service.durationActiveMin + service.durationProcessingMin + service.durationFinishMin;
+    const endAt = new Date(startAt.getTime() + totalDurationMin * 60_000);
+
+    const phases = this.buildPhases({
+      appointmentStart: startAt,
+      appointmentEnd: endAt,
+      activeDurationMin: service.durationActiveMin,
+      processingDurationMin: service.durationProcessingMin,
+      finishDurationMin: service.durationFinishMin,
+      staffId: appointment.staffId
+    });
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Delete old phases
+      await tx.appointmentPhase.deleteMany({ where: { appointmentId: id } });
+      
+      // Update appointment
+      return tx.appointment.update({
+        where: { id },
+        data: {
+          startAt,
+          endAt,
+          phases: {
+            create: phases
+          }
+        },
+        select: {
+          id: true,
+          status: true,
+          startAt: true,
+          endAt: true
+        }
+      });
+    });
+
+    return {
+      ok: true,
+      data: {
+        booking: {
+          id: updated.id,
+          status: updated.status,
+          start_at: updated.startAt.toISOString(),
+          end_at: updated.endAt.toISOString(),
+        }
+      }
+    };
+  }
+
+  async getReceipt(id: string, userId: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        service: true,
+        business: true
+      }
+    });
+
+    if (!appointment) throw new NotFoundException({ ok: false, error: { code: 'BOOKING_NOT_FOUND', message: 'Booking not found', request_id: randomUUID() } });
+    if (appointment.customerId !== userId) throw new ForbiddenException({ ok: false, error: { code: 'BOOKING_ACCESS_DENIED', message: 'Access denied', request_id: randomUUID() } });
+
+    return {
+      ok: true,
+      data: {
+        receipt: {
+          booking_id: id,
+          business_name: appointment.business?.name ?? 'Business',
+          service_name: appointment.service?.name ?? 'Service',
+          total_cents: appointment.service?.priceCents ?? 0,
+          currency: appointment.service?.currency ?? 'RON',
+          tax_cents: appointment.service?.priceCents ? Math.floor(appointment.service.priceCents * 0.19) : 0,
+          issued_at: new Date().toISOString()
+        }
+      }
+    };
+  }
+
+  async updateStatusAsBusiness(id: string, ownerId: string, status: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        business: { select: { ownerId: true } }
+      }
+    });
+
+    if (!appointment) throw new NotFoundException({ ok: false, error: { code: 'BOOKING_NOT_FOUND', message: 'Booking not found', request_id: randomUUID() } });
+    if (appointment.business?.ownerId !== ownerId) throw new ForbiddenException({ ok: false, error: { code: 'BOOKING_ACCESS_DENIED', message: 'Access denied', request_id: randomUUID() } });
+
+    const updated = await this.prisma.appointment.update({
+      where: { id },
+      data: { status },
+      select: {
+        id: true,
+        status: true,
+      }
+    });
+
+    return {
+      ok: true,
+      data: {
+        booking: {
+          id: updated.id,
+          status: updated.status,
+        }
+      }
+    };
+  }
+
   private buildPhases(params: {
     appointmentStart: Date;
     appointmentEnd: Date;

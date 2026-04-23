@@ -1,24 +1,35 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+/* ─── Fonts ───────────────────────────────────────────────────────────
+   Design system: Instrument Serif (display), Geist (UI), Geist Mono (meta).
+────────────────────────────────────────────────────────────────────── */
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
   display: "swap",
 });
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
   display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
+});
+
+const instrumentSerif = Instrument_Serif({
+  variable: "--font-instrument-serif",
+  subsets: ["latin"],
+  display: "swap",
+  weight: "400",
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
-  title: "GLAMR — The Operating System for Modern Beauty",
+  title: "glamr — Beauty & Wellness Appointments",
   description:
-    "Precision scheduling and portfolio-driven discovery for beauty professionals. Split-phase booking, walk-in queues, deposits, packages — architectural solutions for high-performance studios.",
+    "Find your next good hair day. Browse verified beauty professionals, book instantly, and discover inspiration — all in one place.",
 };
 
 export default function RootLayout({
@@ -29,26 +40,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} h-full antialiased`}
     >
-      <head>
-        {/*
-          Runs synchronously before first paint — prevents flash of wrong theme.
-          Defaults to "light" (GLAMR clinical aesthetic is light-first).
-        */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('glamr-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light')}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`,
-          }}
-        />
-        {/* Material Symbols Outlined icon font */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
-        />
-      </head>
-      <body className="min-h-screen flex flex-col bg-background text-on-surface">
+      <body className="min-h-screen flex flex-col bg-[var(--paper)] text-[var(--ink)]">
         {children}
       </body>
     </html>

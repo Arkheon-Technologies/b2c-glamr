@@ -11,13 +11,14 @@ type IconName =
   | "plus" | "check" | "x" | "shield" | "grid" | "menu"
   | "map" | "dots" | "arrow" | "calendar" | "scissors" | "spark"
   | "star" | "share" | "filter" | "user" | "message" | "chart"
-  | "settings" | "camera" | "wallet" | "gift" | "eye";
+  | "settings" | "camera" | "wallet" | "gift" | "eye" | "percent";
 
 interface GlamrIconProps {
   name: IconName;
   size?: number;
   className?: string;
   strokeWidth?: number;
+  style?: React.CSSProperties;
 }
 
 const paths: Record<IconName, React.ReactNode> = {
@@ -194,9 +195,16 @@ const paths: Record<IconName, React.ReactNode> = {
       <circle cx="12" cy="12" r="3" fill="none" />
     </>
   ),
+  percent: (
+    <>
+      <line x1="19" y1="5" x2="5" y2="19" />
+      <circle cx="6.5" cy="6.5" r="2.5" fill="none" />
+      <circle cx="17.5" cy="17.5" r="2.5" fill="none" />
+    </>
+  ),
 };
 
-export function GlamrIcon({ name, size = 18, className = "", strokeWidth = 1.2 }: GlamrIconProps) {
+export function GlamrIcon({ name, size = 18, className = "", strokeWidth = 1.2, style }: GlamrIconProps) {
   return (
     <svg
       width={size}
@@ -208,6 +216,7 @@ export function GlamrIcon({ name, size = 18, className = "", strokeWidth = 1.2 }
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      style={style}
       aria-hidden="true"
     >
       {paths[name]}

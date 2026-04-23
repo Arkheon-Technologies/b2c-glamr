@@ -18,10 +18,26 @@ async function bootstrap() {
     }),
   );
 
-  // CORS
-  const frontendOrigin = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  // CORS — FRONTEND_URL can be a comma-separated list of allowed origins
+  // e.g. "https://glamr-web.vercel.app,https://glamr-jn21n071d-davidles-projects.vercel.app"
+  // In development, localhost:3000 is always allowed.
+  const rawOrigins = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigins = rawOrigins
+    .split(',')
+    .map((o) => o.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
   app.enableCors({
-    origin: frontendOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (server-to-server, curl, mobile apps)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow any *.vercel.app preview URL for the same project slug
+      if (origin.endsWith('.vercel.app')) return callback(null, true);
+      // Allow localhost on any port for local dev
+      if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
   });
 

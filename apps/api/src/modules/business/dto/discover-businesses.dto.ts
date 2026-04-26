@@ -16,4 +16,10 @@ export class DiscoverBusinessesDto {
   @Min(1)
   @Max(50)
   limit?: number;
+
+  /** Bounding box: "sw_lat,sw_lng,ne_lat,ne_lng" */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  bbox?: string;
 }

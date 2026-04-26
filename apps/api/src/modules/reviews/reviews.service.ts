@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { randomUUID } from 'crypto';
 
@@ -70,6 +70,73 @@ export class ReviewsService {
       },
       meta: { total, limit, offset },
     };
+  }
+
+  async validateReviewToken(token: string) {
+    const appointment = await this.prisma.appointment.findFirst({
+      where: { reviewToken: token },
+      select: {
+        id: true,
+        startAt: true,
+        endAt: true,
+        status: true,
+        service: { select: { id: true, name: true } },
+        staff: { select: { id: true, displayName: true } },
+        business: { select: { id: true, name: true, slug: true } },
+        review: { select: { id: true } },
+      },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException({ ok: false, error: { code: 'INVALID_REVIEW_TOKEN', message: 'Review token not found or expired' } });
+    }
+    if (appointment.review) {
+      throw new BadRequestException({ ok: false, error: { code: 'ALREADY_REVIEWED', message: 'This appointment has already been reviewed' } });
+    }
+
+    return {
+      appointment_id: appointment.id,
+      start_at: appointment.startAt,
+      end_at: appointment.endAt,
+      service: appointment.service,
+      staff: appointment.staff,
+      business: appointment.business,
+    };
+  }
+
+  async submitReview(
+    customerId: string,
+    dto: { appointmentId: string; rating: number; body?: string; categoryScores?: Record<string, number>; photos?: string[] },
+  ) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: dto.appointmentId },
+      select: {
+        id: true,
+        businessId: true,
+        staffId: true,
+        customerId: true,
+        review: { select: { id: true } },
+      },
+    });
+    if (!appointment) throw new NotFoundException('Appointment not found');
+    if (appointment.review) throw new BadRequestException('Already reviewed');
+    if (appointment.customerId !== customerId) throw new BadRequestException('Not your appointment');
+
+    const review = await this.prisma.review.create({
+      data: {
+        appointmentId: dto.appointmentId,
+        businessId: appointment.businessId,
+        technicianId: appointment.staffId,
+        customerId,
+        ratingOverall: dto.rating,
+        text: dto.body,
+        categoryScores: dto.categoryScores ?? {},
+        photoUrls: dto.photos ?? [],
+        isVerified: true,
+      },
+    });
+
+    return { id: review.id, created_at: review.createdAt };
   }
 
   async getReviewsBySlug(slug: string, limit = 20, offset = 0) {

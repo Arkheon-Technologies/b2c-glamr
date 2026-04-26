@@ -12,6 +12,18 @@ import { QueueModule } from './modules/queue/queue.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health.controller';
 import { StaffModule } from './modules/staff/staff.module';
+import { SearchModule } from './modules/search/search.module';
+import { QaModule } from './modules/qa/qa.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { GiftCardsModule } from './modules/gift-cards/gift-cards.module';
+import { MessagesModule } from './modules/messages/messages.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { FeedModule } from './modules/feed/feed.module';
+import { MarketingModule } from './modules/marketing/marketing.module';
+import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { QrModule } from './modules/qr/qr.module';
 
 @Module({
   imports: [
@@ -27,6 +39,18 @@ import { StaffModule } from './modules/staff/staff.module';
     ReviewsModule,
     QueueModule,
     StaffModule,
+    SearchModule,
+    QaModule,
+    PaymentsModule,
+    NotificationsModule,
+    GiftCardsModule,
+    MessagesModule,
+    AnalyticsModule,
+    FeedModule,
+    MarketingModule,
+    WebhooksModule,
+    IntegrationsModule,
+    QrModule,
   ],
   controllers: [HealthController],
 })

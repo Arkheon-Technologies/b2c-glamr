@@ -32,6 +32,23 @@ export class BusinessService {
     const query = params.query?.trim();
     const vertical = params.vertical?.trim();
 
+    // Parse bbox: "sw_lat,sw_lng,ne_lat,ne_lng"
+    let bboxFilter: object | undefined;
+    if (params.bbox) {
+      const parts = params.bbox.split(',').map(Number);
+      if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
+        const [swLat, swLng, neLat, neLng] = parts;
+        bboxFilter = {
+          locations: {
+            some: {
+              latitude: { gte: swLat, lte: neLat },
+              longitude: { gte: swLng, lte: neLng },
+            },
+          },
+        };
+      }
+    }
+
     const businesses = await this.prisma.business.findMany({
       where: {
         ...(query
@@ -44,6 +61,7 @@ export class BusinessService {
             }
           : {}),
         ...(vertical ? { verticals: { has: vertical } } : {}),
+        ...(bboxFilter ?? {}),
       },
       orderBy: [{ isVerified: 'desc' }, { totalBookings: 'desc' }, { createdAt: 'desc' }],
       take,
@@ -59,7 +77,7 @@ export class BusinessService {
         coverImageUrl: true,
         totalBookings: true,
         locations: {
-          select: { city: true, neighborhood: true, countryCode: true },
+          select: { city: true, neighborhood: true, countryCode: true, latitude: true, longitude: true },
           orderBy: { isPrimary: 'desc' },
           take: 1,
         },
@@ -81,7 +99,15 @@ export class BusinessService {
           total_bookings: b.totalBookings,
           logo_url: b.logoUrl,
           cover_image_url: b.coverImageUrl,
-          location: b.locations[0] ?? null,
+          location: b.locations[0]
+            ? {
+                city: b.locations[0].city,
+                neighborhood: b.locations[0].neighborhood,
+                countryCode: b.locations[0].countryCode,
+                lat: b.locations[0].latitude ? Number(b.locations[0].latitude) : null,
+                lng: b.locations[0].longitude ? Number(b.locations[0].longitude) : null,
+              }
+            : null,
           services_count: b._count.services,
           staff_count: b._count.staffMembers,
         })),

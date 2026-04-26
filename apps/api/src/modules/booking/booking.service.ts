@@ -655,4 +655,157 @@ export class BookingService {
 
     return phases;
   }
+
+  // ─── Business reschedule (studio drag-drop) ───────────────────
+
+  async rescheduleAsBusiness(
+    id: string,
+    ownerId: string,
+    newStartAtStr: string,
+    notifyClient = false,
+    reason?: string,
+  ) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id },
+      include: { business: { select: { ownerId: true } }, service: true },
+    });
+
+    if (!appointment) {
+      throw new NotFoundException({ ok: false, error: { code: 'BOOKING_NOT_FOUND', message: 'Booking not found', request_id: randomUUID() } });
+    }
+    if (appointment.business?.ownerId !== ownerId) {
+      throw new ForbiddenException({ ok: false, error: { code: 'BOOKING_ACCESS_DENIED', message: 'Access denied', request_id: randomUUID() } });
+    }
+
+    const service = appointment.service;
+    if (!service) {
+      throw new BadRequestException({ ok: false, error: { code: 'SERVICE_NOT_FOUND', message: 'Service not found', request_id: randomUUID() } });
+    }
+
+    const startAt = new Date(newStartAtStr);
+    if (Number.isNaN(startAt.getTime())) {
+      throw new BadRequestException({ ok: false, error: { code: 'INVALID_DATE', message: 'Invalid start_at datetime', request_id: randomUUID() } });
+    }
+
+    const totalDurationMin = service.durationActiveMin + service.durationProcessingMin + service.durationFinishMin;
+    const endAt = new Date(startAt.getTime() + Math.max(totalDurationMin, 15) * 60_000);
+
+    // Conflict check — exclude this appointment itself
+    const conflict = await this.prisma.appointment.findFirst({
+      where: {
+        id: { not: id },
+        staffId: appointment.staffId,
+        startAt: { lt: endAt },
+        endAt: { gt: startAt },
+        status: { notIn: ['cancelled_by_customer', 'cancelled_by_business', 'no_show'] },
+      },
+      select: { id: true },
+    });
+
+    if (conflict) {
+      throw new ConflictException({
+        ok: false,
+        error: { code: 'BOOKING_SLOT_UNAVAILABLE', message: 'Selected time slot is not available', request_id: randomUUID() },
+      });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.appointmentPhase.deleteMany({ where: { appointmentId: id } });
+      const phases = this.buildPhases({
+        appointmentStart: startAt,
+        appointmentEnd: endAt,
+        activeDurationMin: service.durationActiveMin,
+        processingDurationMin: service.durationProcessingMin,
+        finishDurationMin: service.durationFinishMin,
+        staffId: appointment.staffId,
+      });
+      return tx.appointment.update({
+        where: { id },
+        data: {
+          startAt,
+          endAt,
+          notes: reason
+            ? [appointment.notes, `[reschedule_reason] ${reason}`].filter(Boolean).join('\n')
+            : appointment.notes,
+          phases: { create: phases },
+        },
+        select: { id: true, status: true, startAt: true, endAt: true },
+      });
+    });
+
+    // Fire-and-forget notification when requested
+    if (notifyClient) {
+      void this.sendConfirmationEmail(updated.id, appointment.customerId ?? undefined, appointment.guestEmail ?? null, appointment.guestName ?? null);
+    }
+
+    return {
+      ok: true,
+      data: {
+        booking: {
+          id: updated.id,
+          status: updated.status,
+          start_at: updated.startAt.toISOString(),
+          end_at: updated.endAt.toISOString(),
+        },
+      },
+    };
+  }
+
+  // ─── Counter-proposal ──────────────────────────────────────────
+
+  async sendCounter(appointmentId: string, staffUserId: string, startAtIso: string) {
+    const appointment = await this.prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      select: { id: true, businessId: true, endAt: true, startAt: true },
+    });
+    if (!appointment) throw new NotFoundException('Appointment not found');
+
+    const proposedStart = new Date(startAtIso);
+    const token = randomUUID();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const counter = await this.prisma.bookingCounter.create({
+      data: {
+        appointmentId,
+        proposedStartAt: proposedStart,
+        token,
+        expiresAt,
+        status: 'pending',
+      },
+    });
+
+    return { ok: true, data: { counter_id: counter.id, token, expires_at: expiresAt } };
+  }
+
+  async acceptCounter(token: string, customerId: string) {
+    const counter = await this.prisma.bookingCounter.findUnique({ where: { token } });
+    if (!counter || counter.status !== 'pending' || counter.expiresAt < new Date()) {
+      throw new BadRequestException('Counter-proposal token is invalid or expired');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.bookingCounter.update({ where: { token }, data: { status: 'accepted' } }),
+      this.prisma.appointment.update({
+        where: { id: counter.appointmentId },
+        data: { startAt: counter.proposedStartAt, status: 'confirmed' },
+      }),
+    ]);
+
+    return { ok: true, data: { accepted: true, appointment_id: counter.appointmentId } };
+  }
+
+  async declineCounter(token: string, customerId: string) {
+    const counter = await this.prisma.bookingCounter.findUnique({ where: { token } });
+    if (!counter) throw new NotFoundException('Counter not found');
+
+    await this.prisma.$transaction([
+      this.prisma.bookingCounter.update({ where: { token }, data: { status: 'declined' } }),
+      this.prisma.appointment.update({
+        where: { id: counter.appointmentId },
+        data: { status: 'cancelled_by_customer' },
+      }),
+    ]);
+
+    return { ok: true, data: { declined: true } };
+  }
 }

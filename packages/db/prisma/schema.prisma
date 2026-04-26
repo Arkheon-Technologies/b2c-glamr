@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-openssl-3.0.x"]
 }
 
 datasource db {
@@ -44,11 +45,15 @@ model User {
   patchTestRecords    PatchTestRecord[] @relation("PatchTestCustomer")
   intakeFormResponses IntakeFormResponse[]
   consentDocuments    ConsentDocument[]
-  packageCredits      PackageCredit[]
-  referralsMade       Referral[]        @relation("Referrer")
-  referralsReceived   Referral[]        @relation("Referred")
-  payments            Payment[]
-  invoices            Invoice[]
+  packageCredits          PackageCredit[]
+  referralsMade           Referral[]              @relation("Referrer")
+  referralsReceived       Referral[]              @relation("Referred")
+  payments                Payment[]
+  invoices                Invoice[]
+  walletLedger            WalletLedger[]
+  loyaltyLedger           LoyaltyLedger[]
+  notifications           Notification[]
+  notificationPreference  NotificationPreference?
 
   @@map("users")
 }
@@ -59,6 +64,9 @@ model CustomerProfile {
   favoriteTechnicians String[] @default([]) @map("favorite_technicians") @db.Uuid
   totalBookings       Int      @default(0) @map("total_bookings")
   referralCode        String?  @unique @map("referral_code") @db.VarChar(20)
+  hairType            String?  @map("hair_type") @db.VarChar(50)
+  skinType            String?  @map("skin_type") @db.VarChar(50)
+  prefs               Json?
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -163,9 +171,18 @@ model Business {
   loyaltyTiers         LoyaltyTier[]
   payments             Payment[]
   invoices             Invoice[]
-  featuredListings     FeaturedListing[]
-  referrals            Referral[]
-  rebookingSuggestions RebookingSuggestion[]
+  featuredListings          FeaturedListing[]
+  referrals                 Referral[]
+  rebookingSuggestions      RebookingSuggestion[]
+  serviceAreas              ServiceArea[]
+  qaThreads                 QaThread[]
+  stripeConnectAccount      StripeConnectAccount?
+  campaigns                 Campaign[]
+  messageTemplates          MessageTemplate[]
+  webhooks                  Webhook[]
+  integrationConnections    IntegrationConnection[]
+  reviewSentimentSnapshot   ReviewSentimentSnapshot?
+  whiteLabelTheme           Json?    @map("white_label_theme")
 
   @@map("businesses")
 }
@@ -222,6 +239,12 @@ model StaffMember {
   displayName           String   @map("display_name") @db.VarChar(100)
   isMedicalProfessional Boolean  @default(false) @map("is_medical_professional")
   isActive              Boolean  @default(true) @map("is_active")
+  commissionPct         Float?   @map("commission_pct")
+  commissionFlatCents   Int?     @map("commission_flat_cents")
+  isBoothRenter         Boolean  @default(false) @map("is_booth_renter")
+  boothRentCents        Int?     @map("booth_rent_cents")
+  revenueKeepPct        Float?   @map("revenue_keep_pct")
+  level                 String   @default("standard") @db.VarChar(20) // junior | standard | senior
   createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
   user              User               @relation(fields: [userId], references: [id])
@@ -445,9 +468,16 @@ model Appointment {
   guestEmail        String?  @map("guest_email") @db.VarChar(255)
   guestName         String?  @map("guest_name") @db.VarChar(100)
   guestPhone        String?  @map("guest_phone") @db.VarChar(20)
-  notes             String?
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  notes                String?
+  paymentIntentId      String?  @map("payment_intent_id") @db.VarChar(100)
+  paymentStatus        String?  @map("payment_status") @db.VarChar(20) // authorized | captured | refunded
+  cancellationFeeCents Int?     @map("cancellation_fee_cents")
+  noShowFeeAmountCents Int?     @map("no_show_fee_amount_cents")
+  preferencesJson      Json?    @map("preferences")
+  guestToken           String?  @map("guest_token") @db.VarChar(100)
+  reviewToken          String?  @unique @map("review_token") @db.VarChar(100)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
   business          Business              @relation(fields: [businessId], references: [id])
   location          BusinessLocation?     @relation(fields: [locationId], references: [id])
@@ -459,11 +489,15 @@ model Appointment {
   review            Review?
   payments          Payment[]
   invoices          Invoice[]
-  portfolioItems    PortfolioItem[]
-  appliedDiscounts  AppliedDiscount[]
-  patchTestRecords  PatchTestRecord[]
-  consentDocuments  ConsentDocument[]
+  portfolioItems      PortfolioItem[]
+  appliedDiscounts    AppliedDiscount[]
+  patchTestRecords    PatchTestRecord[]
+  consentDocuments    ConsentDocument[]
   intakeFormResponses IntakeFormResponse[]
+  bookingCounters     BookingCounter[]
+  tips                Tip[]
+  attachments         BookingAttachment[]
+  series              AppointmentSeries?
 
   @@index([staffId, startAt, status])
   @@index([businessId, startAt])
@@ -545,9 +579,10 @@ model WaitlistEntry {
   position       Int
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
 
-  service  Service     @relation(fields: [serviceId], references: [id])
-  staff    StaffMember? @relation(fields: [staffId], references: [id])
-  customer User        @relation(fields: [customerId], references: [id])
+  service  Service       @relation(fields: [serviceId], references: [id])
+  staff    StaffMember?  @relation(fields: [staffId], references: [id])
+  customer User          @relation(fields: [customerId], references: [id])
+  offers   WaitlistOffer[]
 
   @@map("waitlist_entries")
 }
@@ -603,6 +638,7 @@ model Review {
   text               String?
   photoUrls          String[]  @default([]) @map("photo_urls")
   portfolioItemId    String?   @map("portfolio_item_id") @db.Uuid
+  categoryScores     Json?     @map("category_scores")
   isVerified         Boolean   @default(true) @map("is_verified")
   isFlagged          Boolean   @default(false) @map("is_flagged")
   flagReason         String?   @map("flag_reason")
@@ -902,4 +938,440 @@ model RebookingSuggestion {
 
   @@index([status, suggestedDate])
   @@map("rebooking_suggestions")
+}
+
+// ─── Phase 1: Search & Discovery ───────────────────────────────────
+
+model SearchClick {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String?  @map("user_id") @db.Uuid
+  query             String?
+  filters           Json?
+  clickedBusinessId String?  @map("clicked_business_id") @db.Uuid
+  position          Int?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([createdAt])
+  @@map("search_clicks")
+}
+
+model TrendingQuery {
+  slug       String   @id @db.VarChar(100)
+  label      String   @db.VarChar(200)
+  rank       Int
+  snapshotAt DateTime @default(now()) @map("snapshot_at") @db.Timestamptz()
+
+  @@map("trending_queries")
+}
+
+model ServiceArea {
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  kind       String   @db.VarChar(20) // 'radius' | 'polygon' | 'postcodes'
+  payload    Json
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("service_areas")
+}
+
+model QaThread {
+  id         String     @id @default(uuid()) @db.Uuid
+  businessId String     @map("business_id") @db.Uuid
+  askerId    String?    @map("asker_id") @db.Uuid
+  question   String
+  isPublic   Boolean    @default(true) @map("is_public")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+
+  business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  answers  QaAnswer[]
+
+  @@index([businessId, createdAt(sort: Desc)])
+  @@map("qa_threads")
+}
+
+model QaAnswer {
+  id        String   @id @default(uuid()) @db.Uuid
+  threadId  String   @map("thread_id") @db.Uuid
+  staffId   String   @map("staff_id") @db.Uuid
+  answer    String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  thread QaThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@map("qa_answers")
+}
+
+// ─── Phase 2: Booking / Payments / Notifications ───────────────────
+
+model BookingCounter {
+  id              String      @id @default(uuid()) @db.Uuid
+  appointmentId   String      @map("appointment_id") @db.Uuid
+  proposedStartAt DateTime    @map("proposed_start_at") @db.Timestamptz()
+  token           String      @unique @db.VarChar(100)
+  expiresAt       DateTime    @map("expires_at") @db.Timestamptz()
+  status          String      @default("pending") @db.VarChar(20) // pending | accepted | declined | expired
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@map("booking_counters")
+}
+
+model WaitlistOffer {
+  id              String        @id @default(uuid()) @db.Uuid
+  waitlistEntryId String        @map("waitlist_entry_id") @db.Uuid
+  offeredStartAt  DateTime      @map("offered_start_at") @db.Timestamptz()
+  token           String        @unique @db.VarChar(100)
+  expiresAt       DateTime      @map("expires_at") @db.Timestamptz()
+  status          String        @default("offered") @db.VarChar(20) // offered | claimed | expired
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+
+  waitlistEntry WaitlistEntry @relation(fields: [waitlistEntryId], references: [id])
+
+  @@map("waitlist_offers")
+}
+
+model GiftCard {
+  id              String    @id @default(uuid()) @db.Uuid
+  code            String    @unique @db.VarChar(50)
+  amountCents     Int       @map("amount_cents")
+  balanceCents    Int       @map("balance_cents")
+  purchaserUserId String?   @map("purchaser_user_id") @db.Uuid
+  recipientEmail  String?   @map("recipient_email") @db.VarChar(255)
+  businessId      String?   @map("business_id") @db.Uuid
+  issuedAt        DateTime  @default(now()) @map("issued_at") @db.Timestamptz()
+  scheduledFor    DateTime? @map("scheduled_for") @db.Timestamptz()
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz()
+
+  @@map("gift_cards")
+}
+
+model WalletLedger {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  amountCents Int      @map("amount_cents") // signed
+  kind        String   @db.VarChar(30) // gift_redeem | refund_credit | loyalty_redeem | referral_reward
+  refId       String?  @map("ref_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("wallet_ledger")
+}
+
+model Tip {
+  id            String   @id @default(uuid()) @db.Uuid
+  appointmentId String   @map("appointment_id") @db.Uuid
+  staffId       String   @map("staff_id") @db.Uuid
+  amountCents   Int      @map("amount_cents")
+  paymentId     String?  @map("payment_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@map("tips")
+}
+
+model LoyaltyLedger {
+  id               String   @id @default(uuid()) @db.Uuid
+  customerId       String   @map("customer_id") @db.Uuid
+  businessId       String   @map("business_id") @db.Uuid
+  points           Int
+  reason           String   @db.VarChar(50) // earned_booking | redeemed | expired
+  refAppointmentId String?  @map("ref_appointment_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  customer User @relation(fields: [customerId], references: [id])
+
+  @@index([customerId, businessId, createdAt(sort: Desc)])
+  @@map("loyalty_ledger")
+}
+
+model StripeConnectAccount {
+  businessId      String   @id @map("business_id") @db.Uuid
+  stripeAccountId String   @unique @map("stripe_account_id") @db.VarChar(100)
+  chargesEnabled  Boolean  @default(false) @map("charges_enabled")
+  payoutsEnabled  Boolean  @default(false) @map("payouts_enabled")
+  requirementsDue Json?    @map("requirements_due")
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@map("stripe_connect_accounts")
+}
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  kind      String    @db.VarChar(60) // booking.confirmed | reminder.24h | review.prompt | ...
+  channel   String    @db.VarChar(20) // sms | email | push | inapp
+  status    String    @default("queued") @db.VarChar(20) // queued | sent | delivered | failed
+  payload   Json?
+  sendAt    DateTime? @map("send_at") @db.Timestamptz()
+  sentAt    DateTime? @map("sent_at") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([status, sendAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  userId     String   @id @map("user_id") @db.Uuid
+  email      Json?
+  sms        Json?
+  push       Json?
+  quietHours Json?    @map("quiet_hours")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notification_preferences")
+}
+
+model BookingAttachment {
+  id            String   @id @default(uuid()) @db.Uuid
+  appointmentId String   @map("appointment_id") @db.Uuid
+  url           String
+  kind          String   @db.VarChar(20) // inspiration | consent | invoice
+  uploadedBy    String?  @map("uploaded_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@map("booking_attachments")
+}
+
+// ─── Phase 3: Calendar / Messaging / Commission ────────────────────
+
+model AppointmentSeries {
+  id                    String   @id @default(uuid()) @db.Uuid
+  templateAppointmentId String   @unique @map("template_appointment_id") @db.Uuid
+  rrule                 String   // iCal RRULE string
+  materializedUntil     DateTime @map("materialized_until") @db.Timestamptz()
+
+  appointment Appointment @relation(fields: [templateAppointmentId], references: [id])
+
+  @@map("appointment_series")
+}
+
+model MessageThread {
+  id            String    @id @default(uuid()) @db.Uuid
+  customerId    String    @map("customer_id") @db.Uuid
+  businessId    String    @map("business_id") @db.Uuid
+  appointmentId String?   @map("appointment_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz()
+
+  messages Message[]
+
+  @@index([customerId, lastMessageAt(sort: Desc)])
+  @@index([businessId, lastMessageAt(sort: Desc)])
+  @@map("message_threads")
+}
+
+model Message {
+  id           String        @id @default(uuid()) @db.Uuid
+  threadId     String        @map("thread_id") @db.Uuid
+  senderKind   String        @map("sender_kind") @db.VarChar(20) // customer | staff | system
+  senderUserId String?       @map("sender_user_id") @db.Uuid
+  body         String?
+  attachments  Json?
+  readAt       DateTime?     @map("read_at") @db.Timestamptz()
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+  @@map("messages")
+}
+
+model CommissionLedger {
+  id            String   @id @default(uuid()) @db.Uuid
+  staffId       String   @map("staff_id") @db.Uuid
+  appointmentId String   @map("appointment_id") @db.Uuid
+  amountCents   Int      @map("amount_cents")
+  kind          String   @db.VarChar(20) // service | tip | deduction
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([staffId, createdAt(sort: Desc)])
+  @@map("commission_ledger")
+}
+
+// ─── Phase 4: Feed / Social ────────────────────────────────────────
+
+model FeedPost {
+  id              String   @id @default(uuid()) @db.Uuid
+  portfolioItemId String   @map("portfolio_item_id") @db.Uuid
+  staffId         String   @map("staff_id") @db.Uuid
+  businessId      String   @map("business_id") @db.Uuid
+  category        String?  @db.VarChar(50)
+  heroPhotoUrl    String   @map("hero_photo_url")
+  caption         String?
+  likeCount       Int      @default(0) @map("like_count")
+  saveCount       Int      @default(0) @map("save_count")
+  commentCount    Int      @default(0) @map("comment_count")
+  publishedAt     DateTime @map("published_at") @db.Timestamptz()
+
+  likes    FeedLike[]
+  comments FeedComment[]
+
+  @@index([businessId, publishedAt(sort: Desc)])
+  @@index([staffId, publishedAt(sort: Desc)])
+  @@map("feed_posts")
+}
+
+model FeedLike {
+  userId    String   @map("user_id") @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  post FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@map("feed_likes")
+}
+
+model FeedComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @map("post_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  post FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("feed_comments")
+}
+
+model Follow {
+  followerId    String   @map("follower_id") @db.Uuid
+  targetStaffId String   @map("target_staff_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@id([followerId, targetStaffId])
+  @@map("follows")
+}
+
+model Collection {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  isPublic  Boolean  @default(false) @map("is_public")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  items CollectionItem[]
+
+  @@index([userId])
+  @@map("collections")
+}
+
+model CollectionItem {
+  collectionId String   @map("collection_id") @db.Uuid
+  feedPostId   String   @map("feed_post_id") @db.Uuid
+  addedAt      DateTime @default(now()) @map("added_at") @db.Timestamptz()
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, feedPostId])
+  @@map("collection_items")
+}
+
+// ─── Phase 4: Analytics ────────────────────────────────────────────
+
+model ReviewSentimentSnapshot {
+  businessId    String   @id @map("business_id") @db.Uuid
+  praisedThemes Json     @map("praised_themes")
+  flaggedThemes Json     @map("flagged_themes")
+  snapshotAt    DateTime @default(now()) @map("snapshot_at") @db.Timestamptz()
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@map("review_sentiment_snapshots")
+}
+
+// ─── Phase 4: Marketing & Campaigns ───────────────────────────────
+
+model Campaign {
+  id          String    @id @default(uuid()) @db.Uuid
+  businessId  String    @map("business_id") @db.Uuid
+  name        String    @db.VarChar(100)
+  segment     Json
+  channels    String[]
+  templateId  String?   @map("template_id") @db.Uuid
+  scheduledAt DateTime? @map("scheduled_at") @db.Timestamptz()
+  sentAt      DateTime? @map("sent_at") @db.Timestamptz()
+  status      String    @default("draft") @db.VarChar(20) // draft | scheduled | sending | sent | failed
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, createdAt(sort: Desc)])
+  @@map("campaigns")
+}
+
+model MessageTemplate {
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @map("business_id") @db.Uuid
+  kind       String   @db.VarChar(50) // confirmation | reminder_24h | reschedule | cancel | review_prompt | reengagement
+  subject    String?  @db.VarChar(200)
+  bodyEmail  String?  @map("body_email")
+  bodySms    String?  @map("body_sms")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@map("message_templates")
+}
+
+// ─── Phase 4: Webhooks & Integrations ─────────────────────────────
+
+model Webhook {
+  id         String            @id @default(uuid()) @db.Uuid
+  businessId String            @map("business_id") @db.Uuid
+  url        String
+  secret     String
+  events     String[]
+  active     Boolean           @default(true)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+
+  business   Business          @relation(fields: [businessId], references: [id])
+  deliveries WebhookDelivery[]
+
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id          BigInt    @id @default(autoincrement())
+  webhookId   String    @map("webhook_id") @db.Uuid
+  event       String    @db.VarChar(100)
+  payload     Json
+  statusCode  Int?      @map("status_code")
+  attempt     Int       @default(1)
+  deliveredAt DateTime? @map("delivered_at") @db.Timestamptz()
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt(sort: Desc)])
+  @@map("webhook_deliveries")
+}
+
+model IntegrationConnection {
+  id          String   @id @default(uuid()) @db.Uuid
+  businessId  String   @map("business_id") @db.Uuid
+  provider    String   @db.VarChar(50) // google_calendar | google_business | mailchimp | brevo | zapier
+  config      Json?
+  tokens      Json? // store encrypted refresh/access tokens
+  connectedAt DateTime @map("connected_at") @db.Timestamptz()
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@unique([businessId, provider])
+  @@map("integration_connections")
 }

@@ -8,6 +8,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { GlamrIcon } from "@/components/ui/GlamrIcon";
 import { discoverBusinesses, type DiscoverBusiness } from "@/lib/mvp-api";
+import { BusinessMap } from "@/components/ui/BusinessMap";
 
 /* ─── Mock data ────────────────────────────────────────────────────── */
 const FILTER_CATEGORIES = ["Hair", "Nails", "Skincare", "Makeup", "Brows & lashes", "Barbering", "Wellness", "Aesthetics"];
@@ -23,20 +24,38 @@ function SearchPageContent() {
 
   const [businesses, setBusinesses] = useState<DiscoverBusiness[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bbox, setBbox] = useState<string | undefined>();
 
-  useEffect(() => {
+  const loadBusinesses = (bboxOverride?: string) => {
     setLoading(true);
-    // Use the first selected category for demo purposes
     const vertical = selectedCategories.length > 0 ? selectedCategories[0].toLowerCase() : undefined;
+    const verticalMapped =
+      vertical === "brows & lashes" ? "lashes" :
+      vertical === "hair" ? "hair" :
+      vertical === "skincare" ? "skin" :
+      vertical === "nails" ? "nails" :
+      vertical === "barbering" ? "barber" :
+      undefined;
 
     discoverBusinesses({
       query: query || undefined,
-      vertical: vertical === "brows & lashes" ? "lashes" : vertical === "hair" ? "hair" : vertical === "skincare" ? "skin" : vertical === "nails" ? "nails" : vertical === "barbering" ? "barber" : undefined,
+      vertical: verticalMapped,
+      bbox: bboxOverride ?? bbox,
     })
       .then(setBusinesses)
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadBusinesses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, selectedCategories]);
+
+  function handleViewportChange(newBbox: string) {
+    setBbox(newBbox);
+    loadBusinesses(newBbox);
+  }
 
   const toggleCategory = (cat: string) => {
     setSelectedCategories((prev) =>
@@ -244,13 +263,18 @@ function SearchPageContent() {
             ))}
           </div>
         ) : (
-          /* Map placeholder */
-          <div className="h-[calc(100vh-56px-52px)] bg-[var(--paper-3)] flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <GlamrIcon name="map" size={48} className="text-[var(--ink-4)] mx-auto" />
-              <p className="text-[var(--ink-3)] text-[14px]">Map view</p>
-              <p className="text-[var(--ink-4)] text-[12px]">Mapbox GL JS integration coming in Phase 1</p>
-            </div>
+          /* Map view */
+          <div className="h-[calc(100vh-56px-52px)] relative">
+            <BusinessMap
+              businesses={businesses}
+              onViewportChange={handleViewportChange}
+              className="absolute inset-0"
+            />
+            {loading && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur rounded-full px-4 py-1.5 text-[12px] text-[var(--ink-3)] shadow-sm">
+                Updating map…
+              </div>
+            )}
           </div>
         )}
       </div>

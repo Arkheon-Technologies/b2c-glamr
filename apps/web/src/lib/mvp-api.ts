@@ -313,12 +313,10 @@ export interface PortfolioUploadIntent {
   required_headers: Record<string, string>;
 }
 
-export async function fetchServices(search?: string) {
+export async function fetchServices(search?: string, businessId?: string) {
   const params = new URLSearchParams();
-  if (search?.trim()) {
-    params.set("search", search.trim());
-  }
-
+  if (search?.trim()) params.set("search", search.trim());
+  if (businessId) params.set("business_id", businessId);
   const path = params.size ? `/services?${params.toString()}` : "/services";
   const data = await request<{ services: ServiceListItem[] }>(path);
   return data.services;
@@ -863,4 +861,563 @@ export async function setStaffScheduleDay(payload: {
     body: JSON.stringify(payload),
   });
   return data.schedule;
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+
+export interface AutocompleteResult {
+  businesses: Array<{ id: string; label: string; slug: string; logo_url: string | null; kind: "business" }>;
+  services: Array<{ id: string; label: string; vertical: string | null; kind: "service" }>;
+  neighborhoods: Array<{ label: string; kind: "neighborhood" }>;
+}
+
+export async function searchAutocomplete(q: string): Promise<AutocompleteResult> {
+  const params = new URLSearchParams({ q });
+  const data = await request<AutocompleteResult>(`/search/autocomplete?${params.toString()}`);
+  return data;
+}
+
+export interface FeaturedBusiness {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  logo_url: string | null;
+  cover_image_url: string | null;
+  verticals: string[];
+  total_bookings: number;
+  location: { city: string; neighborhood: string | null; countryCode: string } | null;
+}
+
+export async function fetchFeatured(): Promise<FeaturedBusiness[]> {
+  const data = await request<FeaturedBusiness[]>("/search/featured");
+  return data;
+}
+
+export interface TrendingQuery {
+  slug: string;
+  label: string;
+  rank: number;
+}
+
+export async function fetchTrending(): Promise<TrendingQuery[]> {
+  const data = await request<TrendingQuery[]>("/search/trending");
+  return data;
+}
+
+// ─── Q&A ─────────────────────────────────────────────────────────────────────
+
+export interface QaAnswer {
+  id: string;
+  staff_id: string;
+  answer: string;
+  created_at: string;
+}
+
+export interface QaThread {
+  id: string;
+  question: string;
+  is_public: boolean;
+  created_at: string;
+  answers: QaAnswer[];
+}
+
+export async function fetchQa(slug: string, limit = 20, offset = 0): Promise<{ threads: QaThread[]; total: number }> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const data = await request<{ threads: QaThread[]; total: number }>(`/qa/${slug}?${params.toString()}`);
+  return data;
+}
+
+export async function askQuestion(slug: string, question: string): Promise<QaThread> {
+  const data = await request<{ thread: QaThread }>(`/qa/${slug}`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ question }),
+  });
+  return data.thread;
+}
+
+export async function answerQuestion(slug: string, threadId: string, answer: string): Promise<QaAnswer> {
+  const data = await request<{ answer: QaAnswer }>(`/qa/${slug}/${threadId}/answer`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ answer }),
+  });
+  return data.answer;
+}
+
+// ─── Add-ons ───────────────────────────────────────────────────────────
+
+export type ServiceAddon = {
+  id: string; serviceId: string; name: string; description?: string | null;
+  priceCents: number; durationMin: number; isActive: boolean; displayOrder: number;
+};
+
+export async function listAddons(serviceId: string): Promise<ServiceAddon[]> {
+  const data = await request<{ addons: ServiceAddon[] }>(`/services/${serviceId}/addons`);
+  return data.addons;
+}
+
+export async function createAddon(serviceId: string, payload: {
+  name: string; priceCents: number; durationMin?: number; description?: string;
+}): Promise<ServiceAddon> {
+  const data = await request<{ addon: ServiceAddon }>(`/services/${serviceId}/addons`, {
+    method: "POST", headers: authHeaders(), body: JSON.stringify(payload),
+  });
+  return data.addon;
+}
+
+export async function updateAddon(addonId: string, payload: {
+  name?: string; priceCents?: number; durationMin?: number; isActive?: boolean; description?: string;
+}): Promise<ServiceAddon> {
+  const data = await request<{ addon: ServiceAddon }>(`/services/addons/${addonId}`, {
+    method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload),
+  });
+  return data.addon;
+}
+
+export async function deleteAddon(addonId: string): Promise<void> {
+  await request<unknown>(`/services/addons/${addonId}`, { method: "DELETE", headers: authHeaders() });
+}
+
+// ─── Packages ──────────────────────────────────────────────────────────
+
+export type ServicePackage = {
+  id: string; businessId: string; serviceId: string; name: string;
+  sessionCount: number; priceCents: number; currency: string;
+  validityDays?: number | null; description?: string | null;
+  shareable: boolean; isActive: boolean; createdAt: string;
+  service?: { id: string; name: string } | null;
+};
+
+export async function listPackages(businessId: string): Promise<ServicePackage[]> {
+  const data = await request<{ packages: ServicePackage[] }>(`/services/business/${businessId}/packages`);
+  return data.packages;
+}
+
+export async function createPackage(businessId: string, payload: {
+  serviceId: string; name: string; sessionCount: number; priceCents: number;
+  validityDays?: number; description?: string; shareable?: boolean; currency?: string;
+}): Promise<ServicePackage> {
+  const data = await request<{ package: ServicePackage }>(`/services/business/${businessId}/packages`, {
+    method: "POST", headers: authHeaders(), body: JSON.stringify(payload),
+  });
+  return data.package;
+}
+
+export async function updatePackage(pkgId: string, payload: {
+  name?: string; priceCents?: number; sessionCount?: number;
+  validityDays?: number; isActive?: boolean; description?: string; shareable?: boolean;
+}): Promise<ServicePackage> {
+  const data = await request<{ package: ServicePackage }>(`/services/packages/${pkgId}`, {
+    method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload),
+  });
+  return data.package;
+}
+
+// ─── Seasonal / Discount rules ─────────────────────────────────────────
+
+export type DiscountRule = {
+  id: string; businessId: string; ruleType: string; name: string;
+  isActive: boolean; priority: number; conditions: unknown; discountType: string;
+  discountValue: number; validFrom?: string | null; validTo?: string | null;
+  maxUses?: number | null; usedCount: number; appliesTo: unknown; createdAt: string;
+};
+
+export async function listDiscountRules(businessId: string): Promise<DiscountRule[]> {
+  const data = await request<{ rules: DiscountRule[] }>(`/services/business/${businessId}/pricing-rules`);
+  return data.rules;
+}
+
+export async function createDiscountRule(businessId: string, payload: {
+  name: string; ruleType?: string; discountType: "pct" | "flat"; discountValue: number;
+  validFrom?: string; validTo?: string; appliesTo?: object;
+}): Promise<DiscountRule> {
+  const data = await request<{ rule: DiscountRule }>(`/services/business/${businessId}/pricing-rules`, {
+    method: "POST", headers: authHeaders(), body: JSON.stringify(payload),
+  });
+  return data.rule;
+}
+
+export async function updateDiscountRule(ruleId: string, payload: {
+  name?: string; isActive?: boolean; discountValue?: number; validFrom?: string; validTo?: string;
+}): Promise<DiscountRule> {
+  const data = await request<{ rule: DiscountRule }>(`/services/pricing-rules/${ruleId}`, {
+    method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload),
+  });
+  return data.rule;
+}
+
+/** Studio drag-drop reschedule — PATCH /bookings/studio/:id/reschedule */
+export async function rescheduleBooking(
+  bookingId: string,
+  startAt: string,
+  notifyClient = false,
+  reason?: string,
+): Promise<{ id: string; status: string; start_at: string; end_at: string }> {
+  const data = await request<{ booking: { id: string; status: string; start_at: string; end_at: string } }>(
+    `/bookings/studio/${bookingId}/reschedule`,
+    {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ start_at: startAt, notify_client: notifyClient, reason }),
+    },
+  );
+  return data.booking;
+}
+
+// ─── Messages ──────────────────────────────────────────────────────────────
+
+export type MessageThread = {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_email: string | null;
+  business_id: string;
+  appointment_id: string | null;
+  appointment_label: string | null;
+  last_message: { body: string | null; sender_kind: string; created_at: string } | null;
+  unread: boolean;
+  last_message_at: string | null;
+  created_at: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  body: string | null;
+  sender_kind: "customer" | "staff" | "system";
+  sender_user_id: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+export async function listMessageThreads(businessId: string): Promise<MessageThread[]> {
+  const data = await request<{ threads: MessageThread[] }>(`/messages/business/${businessId}`, {
+    headers: authHeaders(),
+  });
+  return data.threads;
+}
+
+export async function getMessageThread(threadId: string): Promise<{
+  id: string; customer_name: string; appointment_id: string | null; messages: ChatMessage[];
+}> {
+  const data = await request<{ thread: { id: string; customer_name: string; appointment_id: string | null; messages: ChatMessage[] } }>(
+    `/messages/threads/${threadId}`, { headers: authHeaders() },
+  );
+  return data.thread;
+}
+
+export async function sendMessage(threadId: string, body: string): Promise<ChatMessage> {
+  const data = await request<{ message: ChatMessage }>(`/messages/threads/${threadId}`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ body }),
+  });
+  return data.message;
+}
+
+export async function createMessageThread(businessId: string, customerId: string, appointmentId?: string): Promise<{ id: string }> {
+  const data = await request<{ thread: { id: string } }>(`/messages/business/${businessId}/threads`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ customer_id: customerId, appointment_id: appointmentId }),
+  });
+  return data.thread;
+}
+
+// ─── Analytics ─────────────────────────────────────────────────────────────
+
+export type AnalyticsPeriod = "7d" | "30d" | "month" | "last_month";
+
+export type AnalyticsSummary = {
+  revenue_cents: number;
+  revenue_change_pct: number | null;
+  bookings: number;
+  bookings_change_pct: number | null;
+  new_clients: number;
+  retention_pct: number;
+  unique_clients: number;
+  period: { from: string; to: string };
+};
+
+export async function getAnalyticsSummary(businessId: string, period: AnalyticsPeriod = "30d"): Promise<AnalyticsSummary> {
+  const data = await request<AnalyticsSummary>(`/analytics/business/${businessId}/summary?period=${period}`, {
+    headers: authHeaders(),
+  });
+  return data;
+}
+
+export async function getAnalyticsRevenueSeries(businessId: string, period: AnalyticsPeriod = "30d"): Promise<{ date: string; value: number }[]> {
+  const data = await request<{ series: { date: string; value: number }[] }>(
+    `/analytics/business/${businessId}/revenue-series?period=${period}`,
+    { headers: authHeaders() },
+  );
+  return data.series;
+}
+
+export async function getAnalyticsTopServices(businessId: string, period: AnalyticsPeriod = "30d"): Promise<{ name: string; bookings: number; revenue_cents: number }[]> {
+  const data = await request<{ services: { name: string; bookings: number; revenue_cents: number }[] }>(
+    `/analytics/business/${businessId}/top-services?period=${period}`,
+    { headers: authHeaders() },
+  );
+  return data.services;
+}
+
+export async function getAnalyticsPeakHours(businessId: string, period: AnalyticsPeriod = "30d"): Promise<{ heatmap: number[][]; days: string[]; hours: string[] }> {
+  const data = await request<{ heatmap: number[][]; days: string[]; hours: string[] }>(
+    `/analytics/business/${businessId}/peak-hours?period=${period}`,
+    { headers: authHeaders() },
+  );
+  return data;
+}
+
+// ─── Feed / Inspiration ───────────────────────────────────────────────────────
+
+export type FeedPost = {
+  id: string;
+  hero_photo_url: string | null;
+  caption: string | null;
+  category: string | null;
+  like_count: number;
+  save_count: number;
+  comment_count: number;
+  published_at: string;
+  liked_by_me: boolean;
+  saved_by_me?: boolean;
+  business: { id: string; name: string; slug: string } | null;
+  staff: { id: string; displayName: string; avatarUrl: string | null } | null;
+};
+
+export async function listFeedPosts(params?: {
+  category?: string;
+  mode?: "for_you" | "following" | "all";
+  limit?: number;
+  offset?: number;
+}): Promise<{ posts: FeedPost[]; meta: { total: number; limit: number; offset: number } }> {
+  const q = new URLSearchParams();
+  if (params?.category) q.set("category", params.category);
+  if (params?.mode) q.set("mode", params.mode);
+  if (params?.limit != null) q.set("limit", String(params.limit));
+  if (params?.offset != null) q.set("offset", String(params.offset));
+  const path = q.size ? `/feed?${q.toString()}` : "/feed";
+  const data = await request<{ posts: FeedPost[]; meta: { total: number; limit: number; offset: number } }>(
+    path,
+    { headers: authHeaders() },
+  );
+  return data;
+}
+
+export async function getFeedCategories(): Promise<string[]> {
+  const data = await request<{ categories: string[] }>("/feed/categories");
+  return data.categories;
+}
+
+export async function toggleFeedLike(postId: string): Promise<{ liked: boolean; like_count: number }> {
+  const data = await request<{ liked: boolean; like_count: number }>(`/feed/${postId}/like`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return data;
+}
+
+export async function saveFeedPost(postId: string): Promise<{ saved: boolean; collection_id: string }> {
+  const data = await request<{ saved: boolean; collection_id: string }>(`/feed/${postId}/save`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return data;
+}
+
+export async function followStaff(staffId: string): Promise<{ following: boolean }> {
+  const data = await request<{ following: boolean }>(`/feed/follow/${staffId}`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  return data;
+}
+
+// ─── Marketing ────────────────────────────────────────────────────────────────
+
+export type Campaign = {
+  id: string;
+  businessId: string;
+  name: string;
+  segment: unknown;
+  channels: string[];
+  scheduledAt: string | null;
+  sentAt: string | null;
+  status: string;
+  createdAt: string;
+};
+
+export type MessageTemplate = {
+  id: string;
+  businessId: string;
+  kind: string;
+  subject: string | null;
+  bodyEmail: string | null;
+  bodySms: string | null;
+  updatedAt: string;
+};
+
+export async function listCampaigns(businessId: string): Promise<Campaign[]> {
+  const data = await request<{ campaigns: Campaign[] }>(
+    `/marketing/business/${businessId}/campaigns`,
+    { headers: authHeaders() },
+  );
+  return data.campaigns;
+}
+
+export async function createCampaign(businessId: string, payload: {
+  name: string; segment?: object; channels?: string[]; scheduled_at?: string;
+}): Promise<Campaign> {
+  const data = await request<{ campaign: Campaign }>(
+    `/marketing/business/${businessId}/campaigns`,
+    { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) },
+  );
+  return data.campaign;
+}
+
+export async function updateCampaign(campaignId: string, payload: {
+  name?: string; status?: string; scheduled_at?: string | null;
+}): Promise<Campaign> {
+  const data = await request<{ campaign: Campaign }>(
+    `/marketing/campaigns/${campaignId}`,
+    { method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload) },
+  );
+  return data.campaign;
+}
+
+export async function deleteCampaign(campaignId: string): Promise<void> {
+  await request<unknown>(`/marketing/campaigns/${campaignId}`, {
+    method: "DELETE", headers: authHeaders(),
+  });
+}
+
+export async function listTemplates(businessId: string): Promise<MessageTemplate[]> {
+  const data = await request<{ templates: MessageTemplate[] }>(
+    `/marketing/business/${businessId}/templates`,
+    { headers: authHeaders() },
+  );
+  return data.templates;
+}
+
+export async function upsertTemplate(businessId: string, kind: string, payload: {
+  subject?: string; body_email?: string; body_sms?: string;
+}): Promise<MessageTemplate> {
+  const data = await request<{ template: MessageTemplate }>(
+    `/marketing/business/${businessId}/templates/${kind}`,
+    { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) },
+  );
+  return data.template;
+}
+
+// ─── Webhooks ─────────────────────────────────────────────────────────────────
+
+export type WebhookEndpoint = {
+  id: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  secret?: string;
+  createdAt: string;
+};
+
+export type WebhookDelivery = {
+  id: string | number;
+  event: string;
+  statusCode: number | null;
+  attempt: number;
+  deliveredAt: string | null;
+  createdAt: string;
+};
+
+export async function listWebhooks(businessId: string): Promise<WebhookEndpoint[]> {
+  const data = await request<{ webhooks: WebhookEndpoint[] }>(
+    `/webhooks/business/${businessId}`,
+    { headers: authHeaders() },
+  );
+  return data.webhooks;
+}
+
+export async function createWebhook(businessId: string, payload: {
+  url: string; events: string[];
+}): Promise<WebhookEndpoint> {
+  const data = await request<{ webhook: WebhookEndpoint }>(
+    `/webhooks/business/${businessId}`,
+    { method: "POST", headers: authHeaders(), body: JSON.stringify(payload) },
+  );
+  return data.webhook;
+}
+
+export async function updateWebhook(webhookId: string, payload: {
+  url?: string; events?: string[]; active?: boolean;
+}): Promise<WebhookEndpoint> {
+  const data = await request<{ webhook: WebhookEndpoint }>(
+    `/webhooks/${webhookId}`,
+    { method: "PATCH", headers: authHeaders(), body: JSON.stringify(payload) },
+  );
+  return data.webhook;
+}
+
+export async function deleteWebhook(webhookId: string): Promise<void> {
+  await request<unknown>(`/webhooks/${webhookId}`, { method: "DELETE", headers: authHeaders() });
+}
+
+export async function listWebhookDeliveries(webhookId: string): Promise<WebhookDelivery[]> {
+  const data = await request<{ deliveries: WebhookDelivery[] }>(
+    `/webhooks/${webhookId}/deliveries`,
+    { headers: authHeaders() },
+  );
+  return data.deliveries;
+}
+
+// ─── Integrations ─────────────────────────────────────────────────────────────
+
+export type IntegrationStatus = {
+  provider: string;
+  connected: boolean;
+  connectedAt: string | null;
+  config: unknown;
+};
+
+export async function listIntegrations(businessId: string): Promise<IntegrationStatus[]> {
+  const data = await request<{ integrations: IntegrationStatus[] }>(
+    `/integrations/business/${businessId}`,
+    { headers: authHeaders() },
+  );
+  return data.integrations;
+}
+
+export async function connectIntegration(businessId: string, provider: string, payload?: {
+  config?: object; tokens?: object;
+}): Promise<{ id: string; provider: string; connectedAt: string }> {
+  const data = await request<{ connection: { id: string; provider: string; connectedAt: string } }>(
+    `/integrations/business/${businessId}/${provider}/connect`,
+    { method: "POST", headers: authHeaders(), body: JSON.stringify(payload ?? {}) },
+  );
+  return data.connection;
+}
+
+export async function disconnectIntegration(businessId: string, provider: string): Promise<void> {
+  await request<unknown>(`/integrations/business/${businessId}/${provider}`, {
+    method: "DELETE", headers: authHeaders(),
+  });
+}
+
+// ─── QR Code ─────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the URL of a QR code image that can be used as an <img src>.
+ * The QR code encodes the given URL and is served by the API.
+ */
+export function getQrCodeUrl(params: {
+  url: string;
+  format?: "svg" | "png";
+  size?: number;
+}): string {
+  const q = new URLSearchParams({ url: params.url });
+  if (params.format) q.set("format", params.format);
+  if (params.size) q.set("size", String(params.size));
+  return `${apiBaseUrl}/qr?${q.toString()}`;
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { GlamrIcon } from "@/components/ui/GlamrIcon";
-import { discoverBusinesses, type DiscoverBusiness } from "@/lib/mvp-api";
+import { fetchFeatured, fetchTrending, type FeaturedBusiness, type TrendingQuery } from "@/lib/mvp-api";
 
 /* ─── Category data ────────────────────────────────────────────────── */
 const CATEGORIES = [
@@ -19,15 +19,9 @@ const CATEGORIES = [
   { slug: "aesthetics", label: "Aesthetics", count: "520" },
 ];
 
-const TRENDING = [
-  "Balayage",
-  "Gel manicure",
-  "Facial",
-  "Bridal hair",
-  "Lash extensions",
-  "Beard trim",
-  "Keratin treatment",
-  "Microblading",
+const TRENDING_FALLBACK = [
+  "Balayage", "Gel manicure", "Facial", "Bridal hair",
+  "Lash extensions", "Beard trim", "Keratin treatment", "Microblading",
 ];
 
 /* ─── Featured professionals (placeholder data) removed ───────────────────── */
@@ -61,12 +55,12 @@ const BIZ_METRICS = [
 
 /* ─── Page ──────────────────────────────────────────────────────────── */
 export default function HomePage() {
-  const [featured, setFeatured] = useState<DiscoverBusiness[]>([]);
+  const [featured, setFeatured] = useState<FeaturedBusiness[]>([]);
+  const [trending, setTrending] = useState<TrendingQuery[]>([]);
 
   useEffect(() => {
-    discoverBusinesses({ limit: 4 })
-      .then(setFeatured)
-      .catch(console.error);
+    fetchFeatured().then(setFeatured).catch(console.error);
+    fetchTrending().then(setTrending).catch(console.error);
   }, []);
 
   return (
@@ -131,7 +125,7 @@ export default function HomePage() {
             {/* Trending chips */}
             <div className="flex flex-wrap justify-center gap-2 pt-2">
               <span className="small-meta text-[var(--ink-4)] self-center mr-1">Trending</span>
-              {TRENDING.map((t) => (
+              {(trending.length > 0 ? trending.map((t) => t.label) : TRENDING_FALLBACK).map((t) => (
                 <Link
                   key={t}
                   href={`/search?q=${encodeURIComponent(t)}`}

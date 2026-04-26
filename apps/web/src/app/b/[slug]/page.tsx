@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { GlamrIcon } from "@/components/ui/GlamrIcon";
-import { fetchBusinessProfile, fetchBusinessReviews, type BusinessProfile, type ReviewItem, type ReviewsSummary } from "@/lib/mvp-api";
+import { fetchBusinessProfile, fetchBusinessReviews, fetchQa, askQuestion, type BusinessProfile, type ReviewItem, type ReviewsSummary, type QaThread } from "@/lib/mvp-api";
 
 /* ─── Helpers ──────────────────────────────────────────────────────── */
 function formatMoney(cents: number | null, maxCents: number | null, currency: string) {
@@ -280,28 +280,80 @@ function AboutTab({ business }: { business: BusinessProfile }) {
   );
 }
 
-function QATab() {
+function QATab({ slug }: { slug: string }) {
+  const [threads, setThreads] = useState<QaThread[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [question, setQuestion] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchQa(slug)
+      .then((res) => setThreads(res.threads))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  async function handleAsk() {
+    if (!question.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      const thread = await askQuestion(slug, question.trim());
+      setThreads((prev) => [thread, ...prev]);
+      setQuestion("");
+    } catch {
+      // silently fail — user not logged in or question too short
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="small-meta text-[var(--ink-4)] animate-pulse py-8">Loading Q&A…</p>;
+  }
+
   return (
     <div className="space-y-4 max-w-2xl">
-      {MOCK_QA.map((qa) => (
+      {threads.length === 0 && (
+        <p className="text-[13px] text-[var(--ink-3)] py-4">No questions yet — be the first to ask.</p>
+      )}
+      {threads.map((qa) => (
         <div key={qa.id} className="card p-5 space-y-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <GlamrIcon name="message" size={14} className="text-[var(--plum)]" />
-              <span className="text-[11px] text-[var(--ink-4)]">{qa.author} · {qa.date}</span>
+              <span className="text-[11px] text-[var(--ink-4)]">
+                {new Date(qa.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              </span>
             </div>
             <p className="text-[15px] font-medium text-[var(--ink)]">{qa.question}</p>
           </div>
-          <div className="pl-5 border-l-2 border-[var(--plum-soft)]">
-            <p className="text-[13px] text-[var(--ink-2)] leading-relaxed">{qa.answer}</p>
-            <p className="text-[10px] text-[var(--ink-4)] mt-1.5 font-mono uppercase tracking-wider">{qa.answeredBy}</p>
-          </div>
+          {qa.answers.map((a) => (
+            <div key={a.id} className="pl-5 border-l-2 border-[var(--plum-soft)]">
+              <p className="text-[13px] text-[var(--ink-2)] leading-relaxed">{a.answer}</p>
+              <p className="text-[10px] text-[var(--ink-4)] mt-1.5 font-mono uppercase tracking-wider">Staff reply</p>
+            </div>
+          ))}
         </div>
       ))}
-      <button className="btn btn-ghost w-full mt-2">
-        <GlamrIcon name="plus" size={14} />
-        Ask a question
-      </button>
+
+      {/* Ask a question */}
+      <div className="card p-4 space-y-3 mt-4">
+        <p className="text-[12px] font-mono uppercase tracking-wider text-[var(--ink-4)]">Ask a question</p>
+        <textarea
+          className="input w-full resize-none text-[14px]"
+          rows={3}
+          placeholder="What would you like to know?"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+        />
+        <button
+          className="btn btn-primary"
+          onClick={handleAsk}
+          disabled={submitting || !question.trim()}
+        >
+          {submitting ? "Sending…" : "Send question"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -472,7 +524,7 @@ export default function BusinessProfilePage() {
               {activeTab === "team" && <TeamTab business={biz} />}
               {activeTab === "reviews" && <ReviewsTab data={reviewsData} />}
               {activeTab === "about" && <AboutTab business={biz} />}
-              {activeTab === "qa" && <QATab />}
+              {activeTab === "qa" && <QATab slug={slug} />}
             </div>
           </>
         )}

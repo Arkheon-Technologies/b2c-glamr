@@ -1,0 +1,112 @@
+import type { Messages } from "./en";
+
+export const ro: Messages = {
+  common: {
+    bookNow: "Rezervă acum",
+    bookThisLook: "Rezervă acest look",
+    save: "Salvează",
+    cancel: "Anulează",
+    delete: "Șterge",
+    edit: "Editează",
+    close: "Închide",
+    loading: "Se încarcă…",
+    saving: "Se salvează…",
+    search: "Caută",
+    viewAll: "Vezi toate",
+    seeMore: "Mai mult",
+    back: "Înapoi",
+    next: "Următor",
+    confirm: "Confirmă",
+    follow: "Urmărește",
+    unfollow: "Nu mai urmări",
+    connect: "Conectează",
+    disconnect: "Deconectează",
+    minutes: "min",
+    from: "de la",
+  },
+
+  nav: {
+    home: "Acasă",
+    discover: "Descoperă",
+    inspiration: "Inspirație",
+    bookings: "Rezervări",
+    account: "Cont",
+    signIn: "Autentificare",
+    signOut: "Deconectare",
+    studioDashboard: "Studio",
+  },
+
+  home: {
+    heroHeadline: "Ziua perfectă a părului tău începe aici",
+    heroSub: "Găsești stiliști verificați, rezervi instant, descoperi lookuri.",
+    searchPlaceholder: "Caută un serviciu sau salon…",
+    featuredTitle: "Saloane recomandate",
+    trendingTitle: "Căutări populare",
+    ctaTitle: "Gata să descoperi?",
+    ctaSub: "Răsfoiește toți profesioniștii de frumusețe din apropierea ta.",
+  },
+
+  discover: {
+    title: "Descoperă",
+    allStudios: "Toate salonele",
+    filters: "Filtre",
+    noResults: "Niciun salon nu corespunde căutării tale.",
+    verified: "Verificat",
+    bookings: "rezervări",
+  },
+
+  inspiration: {
+    title: "Descoperă lookuri",
+    forYou: "Pentru tine",
+    following: "Urmăresc",
+    likeAria: "Apreciază această postare",
+    saveAria: "Salvează această postare",
+    noPostsFollowing: "Urmărește câțiva stiliști pentru a le vedea munca aici.",
+    noPosts: "Nicio postare în acest feed.",
+    demoFeed: "Feed demo",
+  },
+
+  booking: {
+    selectDate: "Alege o dată",
+    selectTime: "Alege o oră",
+    selectStaff: "Alege un stilist",
+    confirmBooking: "Confirmă rezervarea",
+    bookingConfirmed: "Rezervare confirmată!",
+    duration: "Durată",
+    price: "Preț",
+    noSlots: "Nu există locuri disponibile în această zi.",
+    chooseDifferentDate: "Încearcă o altă dată sau stilist.",
+  },
+
+  studio: {
+    dashboard: "Panou",
+    calendar: "Calendar",
+    bookings: "Rezervări",
+    messages: "Mesaje",
+    clients: "Clienți",
+    services: "Servicii",
+    team: "Echipă",
+    analytics: "Analize",
+    marketing: "Marketing",
+    payments: "Plăți",
+    settings: "Setări",
+    queue: "Coadă",
+    portfolio: "Portofoliu",
+    inbox: "Inbox",
+  },
+
+  errors: {
+    generic: "Ceva nu a mers bine. Încearcă din nou.",
+    notFound: "Pagina nu a fost găsită.",
+    unauthorized: "Autentifică-te pentru a continua.",
+    networkError: "Verifică conexiunea și încearcă din nou.",
+  },
+
+  accessibility: {
+    skipToContent: "Salt la conținut",
+    openMenu: "Deschide meniu",
+    closeMenu: "Închide meniu",
+    toggleTheme: "Schimbă tema",
+    languageSwitcher: "Schimbă limba",
+  },
+};

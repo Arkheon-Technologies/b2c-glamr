@@ -1,0 +1,112 @@
+export const en = {
+  common: {
+    bookNow: "Book now",
+    bookThisLook: "Book this look",
+    save: "Save",
+    cancel: "Cancel",
+    delete: "Delete",
+    edit: "Edit",
+    close: "Close",
+    loading: "Loading…",
+    saving: "Saving…",
+    search: "Search",
+    viewAll: "View all",
+    seeMore: "See more",
+    back: "Back",
+    next: "Next",
+    confirm: "Confirm",
+    follow: "Follow",
+    unfollow: "Unfollow",
+    connect: "Connect",
+    disconnect: "Disconnect",
+    minutes: "min",
+    from: "from",
+  },
+
+  nav: {
+    home: "Home",
+    discover: "Discover",
+    inspiration: "Inspiration",
+    bookings: "Bookings",
+    account: "Account",
+    signIn: "Sign in",
+    signOut: "Sign out",
+    studioDashboard: "Studio",
+  },
+
+  home: {
+    heroHeadline: "Your next good hair day starts here",
+    heroSub: "Find verified stylists, book instantly, discover looks.",
+    searchPlaceholder: "Find a service or studio…",
+    featuredTitle: "Featured studios",
+    trendingTitle: "Trending searches",
+    ctaTitle: "Ready to discover?",
+    ctaSub: "Browse all beauty professionals near you.",
+  },
+
+  discover: {
+    title: "Discover",
+    allStudios: "All studios",
+    filters: "Filters",
+    noResults: "No studios match your search.",
+    verified: "Verified",
+    bookings: "bookings",
+  },
+
+  inspiration: {
+    title: "Discover looks",
+    forYou: "For you",
+    following: "Following",
+    likeAria: "Like this post",
+    saveAria: "Save this post",
+    noPostsFollowing: "Follow some stylists to see their work here.",
+    noPosts: "No posts yet in this feed.",
+    demoFeed: "Demo feed",
+  },
+
+  booking: {
+    selectDate: "Select a date",
+    selectTime: "Select a time",
+    selectStaff: "Select a stylist",
+    confirmBooking: "Confirm booking",
+    bookingConfirmed: "Booking confirmed!",
+    duration: "Duration",
+    price: "Price",
+    noSlots: "No slots available on this date.",
+    chooseDifferentDate: "Try a different date or stylist.",
+  },
+
+  studio: {
+    dashboard: "Dashboard",
+    calendar: "Calendar",
+    bookings: "Bookings",
+    messages: "Messages",
+    clients: "Clients",
+    services: "Services",
+    team: "Team",
+    analytics: "Analytics",
+    marketing: "Marketing",
+    payments: "Payments",
+    settings: "Settings",
+    queue: "Queue",
+    portfolio: "Portfolio",
+    inbox: "Inbox",
+  },
+
+  errors: {
+    generic: "Something went wrong. Please try again.",
+    notFound: "Page not found.",
+    unauthorized: "Please sign in to continue.",
+    networkError: "Check your connection and try again.",
+  },
+
+  accessibility: {
+    skipToContent: "Skip to main content",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    toggleTheme: "Toggle theme",
+    languageSwitcher: "Change language",
+  },
+} as const;
+
+export type Messages = typeof en;

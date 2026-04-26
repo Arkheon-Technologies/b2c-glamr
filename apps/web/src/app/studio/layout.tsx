@@ -78,7 +78,7 @@ function StudioSidebar() {
       )}
 
       {/* Nav sections */}
-      <nav className="flex-1 py-3 px-3 space-y-5 overflow-y-auto">
+      <nav aria-label="Studio navigation" className="flex-1 py-3 px-3 space-y-5 overflow-y-auto">
         {NAV_SECTIONS.map((section) => (
           <div key={section.label}>
             <p className="small-meta text-[var(--ink-4)] px-2 mb-1.5">
@@ -91,6 +91,7 @@ function StudioSidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={active ? "page" : undefined}
                     className={[
                       "navitem text-[13px]",
                       active ? "active" : "",
@@ -168,7 +169,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
               </div>
             </header>
             {/* Main content — 28px padded */}
-            <main className="flex-1 p-7 overflow-auto">
+            <main id="main-content" className="flex-1 p-7 overflow-auto" tabIndex={-1}>
               {children}
             </main>
           </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { GlamrIcon } from "@/components/ui/GlamrIcon";
+import { LocaleSwitcher } from "@/components/ui/LocaleSwitcher";
 import { getStoredUser, logout, type AuthUser } from "@/lib/auth-client";
 
 /* ─── Customer top nav (§3.3) ────────────────────────────────────────
@@ -49,7 +50,7 @@ export function Navbar() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[var(--paper)]/95 backdrop-blur-md border-b border-[var(--line)]">
+    <nav aria-label="Main navigation" className="fixed top-0 w-full z-50 bg-[var(--paper)]/95 backdrop-blur-md border-b border-[var(--line)]">
       <div className="page-container flex justify-between items-center h-14">
         {/* Logo — glamr. with plum dot */}
         <Link href="/" className="flex items-baseline gap-0">
@@ -79,6 +80,7 @@ export function Navbar() {
 
         {/* Desktop right actions */}
         <div className="hidden md:flex items-center gap-4">
+          <LocaleSwitcher />
           {!user && (
             <Link
               href="/business"

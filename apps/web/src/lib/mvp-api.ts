@@ -44,7 +44,7 @@ function authHeaders(): HeadersInit | undefined {
   };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
       "Content-Type": "application/json",
@@ -653,10 +653,12 @@ export async function discoverBusinesses(params?: {
   query?: string;
   vertical?: string;
   limit?: number;
+  bbox?: string;
 }) {
   const q = new URLSearchParams();
   if (params?.query?.trim()) q.set('query', params.query.trim());
   if (params?.vertical?.trim()) q.set('vertical', params.vertical.trim());
+  if (params?.bbox?.trim()) q.set('bbox', params.bbox.trim());
   if (params?.limit) q.set('limit', String(params.limit));
   const path = q.size ? `/businesses/discover?${q.toString()}` : '/businesses/discover';
   const data = await request<{ businesses: DiscoverBusiness[] }>(path);
@@ -886,6 +888,7 @@ export interface FeaturedBusiness {
   cover_image_url: string | null;
   verticals: string[];
   total_bookings: number;
+  is_verified: boolean;
   location: { city: string; neighborhood: string | null; countryCode: string } | null;
 }
 

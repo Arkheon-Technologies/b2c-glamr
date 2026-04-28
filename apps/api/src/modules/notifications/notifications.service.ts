@@ -86,7 +86,7 @@ export class NotificationsService {
         channel: params.channel,
         status: 'queued',
         sendAt: params.sendAt,
-        payload: params.payload ?? {},
+        payload: (params.payload ?? {}) as any,
       },
     });
   }

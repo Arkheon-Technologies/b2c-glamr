@@ -3,7 +3,7 @@ import { IsInt, IsOptional, IsString, Min, IsEmail } from 'class-validator';
 export class PurchaseGiftCardDto {
   @IsInt()
   @Min(1000) // minimum 10 RON in bani
-  amountCents: number;
+  amountCents!: number;
 
   @IsOptional()
   @IsEmail()

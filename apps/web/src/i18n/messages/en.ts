@@ -107,6 +107,6 @@ export const en = {
     toggleTheme: "Toggle theme",
     languageSwitcher: "Change language",
   },
-} as const;
+};
 
 export type Messages = typeof en;

@@ -82,7 +82,7 @@ export class ServicesController {
     @Param('businessId') businessId: string,
     @Body() body: { name: string; ruleType?: string; discountType: 'pct' | 'flat'; discountValue: number; validFrom?: string; validTo?: string; appliesTo?: object },
   ) {
-    return this.servicesService.createDiscountRule(businessId, req.user.sub, body);
+    return this.servicesService.createDiscountRule(businessId, req.user.sub, body as any);
   }
 
   @UseGuards(JwtAuthGuard)

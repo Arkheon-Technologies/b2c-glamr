@@ -4,5 +4,5 @@ export class AskQuestionDto {
   @IsString()
   @MinLength(5)
   @MaxLength(1000)
-  question: string;
+  question!: string;
 }

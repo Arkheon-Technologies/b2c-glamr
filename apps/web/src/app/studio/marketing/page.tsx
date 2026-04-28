@@ -69,10 +69,10 @@ const STATUS_DOT: Record<string, string> = {
 
 const PROVIDER_META: Record<string, { label: string; icon: string; desc: string }> = {
   google_calendar: { label: "Google Calendar", icon: "calendar", desc: "Sync bookings to Google Calendar" },
-  google_business: { label: "Google Business", icon: "globe", desc: "Manage your Google profile" },
-  mailchimp: { label: "Mailchimp", icon: "mail", desc: "Sync clients to email lists" },
-  brevo: { label: "Brevo", icon: "mail", desc: "Email & SMS marketing platform" },
-  zapier: { label: "Zapier", icon: "link", desc: "Connect to 5,000+ apps" },
+  google_business: { label: "Google Business", icon: "map", desc: "Manage your Google profile" },
+  mailchimp: { label: "Mailchimp", icon: "message", desc: "Sync clients to email lists" },
+  brevo: { label: "Brevo", icon: "message", desc: "Email & SMS marketing platform" },
+  zapier: { label: "Zapier", icon: "share", desc: "Connect to 5,000+ apps" },
 };
 
 const TEMPLATE_KIND_LABELS: Record<string, string> = {
@@ -470,11 +470,11 @@ export default function MarketingPage() {
           <p className="text-[13px] text-[var(--ink-3)]">Connect your business tools to sync data and automate workflows.</p>
           <div className="grid grid-cols-2 gap-3">
             {integrations.map((int) => {
-              const meta = PROVIDER_META[int.provider] ?? { label: int.provider, icon: "link", desc: "" };
+              const meta = PROVIDER_META[int.provider] ?? { label: int.provider, icon: "share", desc: "" };
               return (
                 <div key={int.provider} className="card p-4 flex items-start gap-3">
                   <div className="w-10 h-10 rounded-lg bg-[var(--paper-3)] flex items-center justify-center shrink-0">
-                    <GlamrIcon name={meta.icon as "link"} size={18} className="text-[var(--ink-3)]" />
+                    <GlamrIcon name={meta.icon as any} size={18} className="text-[var(--ink-3)]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">

@@ -5,8 +5,8 @@ import { ReviewsService } from './reviews.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 class SubmitReviewDto {
-  @IsString() appointmentId: string;
-  @IsInt() @Min(1) @Max(5) rating: number;
+  @IsString() appointmentId!: string;
+  @IsInt() @Min(1) @Max(5) rating!: number;
   @IsOptional() @IsString() body?: string;
   @IsOptional() categoryScores?: Record<string, number>;
   @IsOptional() photos?: string[];

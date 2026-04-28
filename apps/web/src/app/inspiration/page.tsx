@@ -98,7 +98,7 @@ function PostCard({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <GlamrIcon name="image" size={24} className="text-[var(--ink-5)]" />
+            <GlamrIcon name="camera" size={24} className="text-[var(--ink-5)]" />
           </div>
         )}
 
@@ -130,7 +130,7 @@ function PostCard({
             className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-[var(--ink-3)] hover:text-[var(--ink)] transition-colors"
             aria-label="Save"
           >
-            <GlamrIcon name="bookmark" size={13} />
+            <GlamrIcon name="pin" size={13} />
           </button>
         </div>
       </div>
@@ -394,7 +394,7 @@ export default function InspirationPage() {
           {/* Masonry grid */}
           {posts.length === 0 && !loading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4 text-[var(--ink-4)]">
-              <GlamrIcon name="image" size={36} />
+              <GlamrIcon name="camera" size={36} />
               <p className="text-[14px]">No posts yet in this feed.</p>
               {mode === "following" && (
                 <p className="text-[12px]">Follow some stylists to see their work here.</p>

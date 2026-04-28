@@ -196,7 +196,7 @@ export default function ServicesPage() {
       const result = await createService({
         businessId,
         name: newSvcForm.name,
-        priceCents: newSvcForm.priceCents ? Math.round(parseFloat(newSvcForm.priceCents) * 100) : undefined,
+        priceCents: newSvcForm.priceCents ? Math.round(parseFloat(newSvcForm.priceCents) * 100) : 0,
         durationActiveMin: parseInt(newSvcForm.durationMin) || 60,
         description: newSvcForm.description || undefined,
         currency: "RON",

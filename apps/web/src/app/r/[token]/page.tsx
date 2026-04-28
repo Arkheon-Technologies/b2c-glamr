@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { GlamrIcon } from "@/components/ui/GlamrIcon";
-import { request } from "@/lib/mvp-api-internal";
+import { request } from "@/lib/mvp-api";
 
 const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1").replace(/\/$/, "");
 

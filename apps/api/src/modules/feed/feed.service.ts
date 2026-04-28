@@ -54,12 +54,12 @@ export class FeedService {
       }) : [],
       staffIds.length ? this.prisma.staffMember.findMany({
         where: { id: { in: staffIds } },
-        select: { id: true, displayName: true, avatarUrl: true },
+        select: { id: true, displayName: true, technicianProfile: { select: { avatarUrl: true } } },
       }) : [],
     ]);
 
     const bizMap = Object.fromEntries(businesses.map((b) => [b.id, b]));
-    const staffMap = Object.fromEntries(staff.map((s) => [s.id, s]));
+    const staffMap = Object.fromEntries(staff.map((s) => [s.id, { id: s.id, displayName: s.displayName, avatarUrl: s.technicianProfile?.avatarUrl }]));
 
     // Check which posts the user has liked
     let likedPostIds = new Set<string>();
